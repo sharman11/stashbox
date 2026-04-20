@@ -1,0 +1,27 @@
+-- Run this in Supabase SQL Editor AFTER deploying the send-reminders Edge Function.
+-- Requires pg_cron extension (available on Pro plan) or use an external cron (e.g., cron-job.org).
+-- This schedules the Edge Function to run every day at 9:00 AM UTC.
+
+-- Option A: pg_cron (Supabase Pro plan)
+-- select cron.schedule(
+--   'stashbox-daily-reminder',
+--   '0 9 * * *',
+--   $$
+--   select net.http_post(
+--     url := 'https://jbwzjgpwaepqocivycfq.supabase.co/functions/v1/send-reminders',
+--     headers := jsonb_build_object(
+--       'Authorization', 'Bearer ' || current_setting('supabase.service_role_key'),
+--       'Content-Type', 'application/json'
+--     ),
+--     body := '{}'::jsonb
+--   );
+--   $$
+-- );
+
+-- Option B: Use a free external cron service like cron-job.org
+-- Set up a GET/POST request to:
+--   URL: https://jbwzjgpwaepqocivycfq.supabase.co/functions/v1/send-reminders
+--   Header: Authorization: Bearer <your-service-role-key>
+--   Schedule: Daily at 9:00 AM (or user's preferred time)
+--
+-- Note: For free Supabase tier, use Option B with cron-job.org.

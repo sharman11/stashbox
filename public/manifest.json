@@ -1,0 +1,23 @@
+{
+  "name": "Stashbox",
+  "short_name": "Stashbox",
+  "description": "Save money daily, one cell at a time",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F5F7FA",
+  "theme_color": "#0B3D2E",
+  "icons": [
+    {
+      "src": "/assets/images/icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/images/favicon.png",
+      "sizes": "48x48",
+      "type": "image/png"
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "stashbox",
+    "name": "Stashbox",
     "slug": "stashbox",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -9,21 +9,36 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.stashbox.app"
     },
     "android": {
+      "package": "com.stashbox.app",
+      "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#E6F4EA",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "INTERNET",
+        "VIBRATE",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+      "name": "Stashbox",
+      "shortName": "Stashbox",
+      "description": "Save money daily, one cell at a time",
+      "backgroundColor": "#F5F7FA",
+      "themeColor": "#0B3D2E",
+      "lang": "en"
     },
     "plugins": [
       "expo-router",
@@ -33,16 +48,24 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#0B3D2E",
           "dark": {
-            "backgroundColor": "#000000"
+            "backgroundColor": "#0B3D2E"
           }
         }
-      ]
+      ],
+      "expo-audio",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "fd5c34ae-3e7c-4baa-94db-884de9df7654"
+      }
     }
   }
 }

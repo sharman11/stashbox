@@ -1,0 +1,59 @@
+import * as Haptics from 'expo-haptics';
+import { type ReactNode } from 'react';
+import { type StyleProp, type ViewStyle } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
+
+interface SpringPressableProps {
+  onPress: () => void;
+  children: ReactNode;
+  style?: StyleProp<ViewStyle>;
+  disabled?: boolean;
+  haptic?: boolean;
+  scaleDown?: number;
+}
+
+const SPRING_CONFIG = { damping: 15, stiffness: 400, mass: 0.8 };
+
+export function SpringPressable({
+  onPress,
+  children,
+  style,
+  disabled = false,
+  haptic = false,
+  scaleDown = 0.97,
+}: SpringPressableProps) {
+  const scale = useSharedValue(1);
+
+  const doPress = () => {
+    if (haptic) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onPress();
+  };
+
+  const tap = Gesture.Tap()
+    .enabled(!disabled)
+    .onBegin(() => {
+      scale.value = withSpring(scaleDown, SPRING_CONFIG);
+    })
+    .onFinalize((_, success) => {
+      scale.value = withSpring(1, SPRING_CONFIG);
+      if (success) runOnJS(doPress)();
+    });
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <GestureDetector gesture={tap}>
+      <Animated.View style={[style, animatedStyle, disabled && { opacity: 0.5 }]}>
+        {children}
+      </Animated.View>
+    </GestureDetector>
+  );
+}
