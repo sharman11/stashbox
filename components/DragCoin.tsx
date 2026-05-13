@@ -64,7 +64,7 @@ export function DragCoin({ onDrop, hapticsEnabled }: DragCoinProps) {
 
   return (
     <View style={{ alignItems: 'center', paddingVertical: 12 }}>
-      <Text style={{ fontFamily: 'Inter_500Medium', fontSize: 11, color: '#9CA3AF', marginBottom: 6 }}>
+      <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 11, color: '#9CA3AF', marginBottom: 6 }}>
         {dragging ? 'Drop on a cell!' : 'Drag coin to save'}
       </Text>
       <GestureDetector gesture={pan}>

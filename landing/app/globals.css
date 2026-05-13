@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
+    /* Lock horizontal scroll on every device — phone mocks, gradients,
+       and dot patterns can otherwise spill outside the viewport on
+       320–360px Android screens. */
+    overflow-x: hidden;
+  }
+
+  body {
+    @apply bg-paper text-ink font-sans antialiased;
+    overflow-x: hidden;
+  }
+
+  /* Section anchors compensate for sticky-nav offset and respect the
+     iOS safe-area inset when users land on a deep link. */
+  section[id] {
+    scroll-margin-top: 1rem;
+  }
+
+  /* Prevent layout-killing image stretch on narrow screens. */
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  ::selection {
+    @apply bg-accent text-white;
+  }
+}
+
+@layer components {
+  /* Legal pages (privacy, terms) use this manual prose styling so we
+     don't have to pull in @tailwindcss/typography just for two pages. */
+  .legal h2 {
+    @apply mt-10 text-xl sm:text-2xl font-semibold tracking-tight;
+  }
+  .legal h3 {
+    @apply mt-8 text-base sm:text-lg font-semibold tracking-tight;
+  }
+  .legal p {
+    @apply mt-4 text-ink-soft;
+  }
+  .legal ul {
+    @apply mt-4 list-disc space-y-2 pl-6 text-ink-soft;
+  }
+  .legal a {
+    @apply text-accent hover:underline;
+  }
+  .legal strong {
+    @apply text-ink font-semibold;
+  }
+}

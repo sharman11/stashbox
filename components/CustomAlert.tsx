@@ -1,5 +1,7 @@
 import * as Haptics from 'expo-haptics';
-import { Modal, Pressable, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
+
+import { useAppTheme } from '@/lib/stores/theme';
 
 export interface AlertButton {
   text: string;
@@ -21,6 +23,7 @@ interface CustomAlertProps {
 }
 
 export function CustomAlert({ config, onDismiss }: CustomAlertProps) {
+  const C = useAppTheme();
   if (!config.visible) return null;
 
   const buttons = config.buttons?.length
@@ -49,17 +52,18 @@ export function CustomAlert({ config, onDismiss }: CustomAlertProps) {
             onDismiss();
           }
         }}
-        style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.4)' }}
+        style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.overlay }}
       >
         <Pressable
           onPress={(e) => e.stopPropagation()}
           style={{
-            backgroundColor: '#FFFFFF',
+            backgroundColor: C.surface,
             borderRadius: 20,
             paddingTop: 28,
             paddingBottom: 20,
             paddingHorizontal: 24,
-            width: 300,
+            width: '85%',
+            maxWidth: 360,
             alignItems: 'center',
             shadowColor: 'rgba(0,0,0,0.12)',
             shadowOffset: { width: 0, height: 12 },
@@ -77,57 +81,94 @@ export function CustomAlert({ config, onDismiss }: CustomAlertProps) {
                 alignItems: 'center',
                 justifyContent: 'center',
                 marginBottom: 14,
-                backgroundColor: hasDestructive ? '#FEF2F2' : '#E6F4EA',
+                backgroundColor: hasDestructive ? C.errorBg : C.accentLight,
               }}
             >
               <Text style={{ fontSize: 24 }}>{config.icon}</Text>
             </View>
           )}
 
-          <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 18, color: '#0F1419', textAlign: 'center' }}>
+          <Text
+            numberOfLines={3}
+            ellipsizeMode="tail"
+            style={{
+              alignSelf: 'stretch',
+              fontFamily: 'DMSans_700Bold',
+              fontSize: 18,
+              lineHeight: 24,
+              color: C.textPrimary,
+              textAlign: 'center',
+            }}
+          >
             {config.title}
           </Text>
 
           {config.message && (
-            <Text
-              style={{
-                fontFamily: 'Inter_400Regular',
-                fontSize: 14,
-                color: '#6B7280',
-                textAlign: 'center',
-                marginTop: 8,
-                lineHeight: 20,
-              }}
+            <ScrollView
+              style={{ alignSelf: 'stretch', maxHeight: 220, marginTop: 8 }}
+              contentContainerStyle={{ paddingVertical: 2 }}
+              showsVerticalScrollIndicator
             >
-              {config.message}
-            </Text>
+              <Text
+                selectable
+                style={{
+                  fontFamily: 'DMSans_400Regular',
+                  fontSize: 14,
+                  color: C.textSecondary,
+                  textAlign: 'center',
+                  lineHeight: 20,
+                }}
+              >
+                {config.message}
+              </Text>
+            </ScrollView>
           )}
 
           <View style={{ width: '100%', marginTop: 22, gap: 8 }}>
-            {buttons.filter((b) => b.style !== 'cancel').map((button, i) => (
-              <Pressable
-                key={i}
-                onPress={() => handlePress(button)}
-                style={{
-                  paddingVertical: 14,
-                  borderRadius: 14,
-                  alignItems: 'center',
-                  backgroundColor: button.style === 'destructive' ? '#EF4444' : '#1DB954',
-                }}
-              >
-                <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 16, color: '#FFFFFF' }}>
-                  {button.text}
-                </Text>
-              </Pressable>
-            ))}
+            {buttons.filter((b) => b.style !== 'cancel').map((button, i) => {
+              const isDestructive = button.style === 'destructive';
+              return (
+                <Pressable
+                  key={i}
+                  onPress={() => handlePress(button)}
+                  style={{
+                    paddingVertical: 14,
+                    paddingHorizontal: 12,
+                    borderRadius: 14,
+                    alignItems: 'center',
+                    backgroundColor: isDestructive ? '#EF4444' : C.buttonPrimaryBg,
+                  }}
+                >
+                  <Text
+                    allowFontScaling={false}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.8}
+                    style={{
+                      fontFamily: 'DMSans_600SemiBold',
+                      fontSize: 16,
+                      color: isDestructive ? '#FFFFFF' : C.buttonPrimaryText,
+                    }}
+                  >
+                    {button.text}
+                  </Text>
+                </Pressable>
+              );
+            })}
 
             {buttons.filter((b) => b.style === 'cancel').map((button, i) => (
               <Pressable
                 key={`cancel-${i}`}
                 onPress={() => handlePress(button)}
-                style={{ paddingVertical: 14, borderRadius: 14, alignItems: 'center', backgroundColor: '#F3F4F6' }}
+                style={{ paddingVertical: 14, paddingHorizontal: 12, borderRadius: 14, alignItems: 'center', backgroundColor: C.borderLight }}
               >
-                <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 16, color: '#6B7280' }}>
+                <Text
+                  allowFontScaling={false}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
+                  style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 16, color: C.textSecondary }}
+                >
                   {button.text}
                 </Text>
               </Pressable>

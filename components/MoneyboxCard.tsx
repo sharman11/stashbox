@@ -19,7 +19,10 @@ function getAccentColor(pct: number): string {
 }
 
 export function MoneyboxCard({ moneybox, cells, savedAmount, onPress }: MoneyboxCardProps) {
-  const pct = moneybox.goalAmount > 0 ? Math.min(1, savedAmount / moneybox.goalAmount) : 0;
+  // Defensive: clamp to [0, 1] and bail to 0 on NaN/negative-goal corruption
+  // so the progress bar never renders width: -%/NaN%/200%.
+  const ratio = moneybox.goalAmount > 0 ? savedAmount / moneybox.goalAmount : 0;
+  const pct = Number.isFinite(ratio) ? Math.min(1, Math.max(0, ratio)) : 0;
   const filledCount = cells.filter((c) => c.isFilled).length;
   const daysLeft = moneybox.targetDays - filledCount;
   const accentColor = getAccentColor(pct);
@@ -40,13 +43,13 @@ export function MoneyboxCard({ moneybox, cells, savedAmount, onPress }: Moneybox
     >
       <View style={{ padding: 16, flexDirection: 'row', alignItems: 'center' }}>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 15, color: '#0F1419' }} numberOfLines={1}>
+          <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: '#0F1419' }} numberOfLines={1}>
             {moneybox.name}
           </Text>
-          <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 22, color: '#0F1419', marginTop: 4 }}>
+          <Text style={{ fontFamily: 'DMSans_700Bold', fontSize: 22, color: '#0F1419', marginTop: 4 }}>
             {formatAmount(savedAmount, moneybox.currency)}
           </Text>
-          <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 12, color: '#9CA3AF', marginTop: 2 }}>
+          <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 12, color: '#9CA3AF', marginTop: 2 }}>
             {Math.round(pct * 100)}% of {formatAmount(moneybox.goalAmount, moneybox.currency)}
             {daysLeft > 0 ? ` · ${daysLeft}d left` : ' · Done'}
           </Text>

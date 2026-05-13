@@ -1,0 +1,13 @@
+# Files and directories EAS Build should never upload to its build servers.
+# Keeps the mobile app bundle clean and the marketing site fully separate.
+
+# Marketing / landing site (separate Next.js project — see landing/README.md)
+landing/
+
+# Local-only artifacts
+.idea/
+.vscode/
+*.log
+
+# Archived code (kept in-repo for reference, not part of the build)
+lib/archive/

@@ -18,10 +18,10 @@ export function MotivationalText() {
 
   return (
     <Text style={{
-      fontFamily: 'Inter_400Regular', fontSize: 13, color: '#9CA3AF',
+      fontFamily: 'DMSans_400Regular', fontSize: 13, color: '#9CA3AF',
       fontStyle: 'italic', textAlign: 'center', paddingHorizontal: 32,
     }}>
-      &ldquo;{quote}&rdquo;
+      {`“${quote}”`}
     </Text>
   );
 }

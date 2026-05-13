@@ -1,56 +1,24 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Flame, Trophy, Zap } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
+import { Flame, Shield, Trophy, Zap } from 'lucide-react-native';
+import { useEffect } from 'react';
 import { Text, View } from 'react-native';
+import { create } from 'zustand';
+
+import { useAppTheme } from '@/lib/stores/theme';
 
 interface StreakSectionProps {
   currentStreak: number;
   bestStreak: number;
   userId?: string | null;
+  /** Number of streak freezes the user can spend. Renders a shield chip when >0. */
+  freezesAvailable?: number;
 }
 
 const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const EMPTY_WEEK: boolean[] = Array(7).fill(false);
 
 function storageKey(userId?: string | null): string {
   return userId ? `stashbox_weekly_activity_${userId}` : 'stashbox_weekly_activity';
-}
-
-const C = {
-  accent: '#1DB954',
-  surface: '#FFFFFF',
-  textPrimary: '#0F1419',
-  textMuted: '#9CA3AF',
-  textFaint: '#D1D5DB',
-  border: '#F3F4F6',
-};
-
-function useWeeklyActivity(userId?: string | null): boolean[] {
-  const [activity, setActivity] = useState<boolean[]>(Array(7).fill(false));
-
-  useEffect(() => {
-    loadActivity();
-  }, [userId]);
-
-  const loadActivity = async () => {
-    const stored = await AsyncStorage.getItem(storageKey(userId));
-    if (!stored) {
-      setActivity(Array(7).fill(false));
-      return;
-    }
-    try {
-      const parsed = JSON.parse(stored) as { week: string; days: boolean[] };
-      const currentWeek = getWeekId();
-      if (parsed.week === currentWeek) {
-        setActivity(parsed.days);
-      } else {
-        setActivity(Array(7).fill(false));
-      }
-    } catch {
-      setActivity(Array(7).fill(false));
-    }
-  };
-
-  return activity;
 }
 
 function getWeekId(): string {
@@ -60,29 +28,85 @@ function getWeekId(): string {
   return `${now.getFullYear()}-W${weekNum}`;
 }
 
-export async function markTodayActive(userId?: string | null): Promise<void> {
-  const key = storageKey(userId);
-  const currentWeek = getWeekId();
-  const dayIndex = (new Date().getDay() + 6) % 7; // Monday = 0
-  const stored = await AsyncStorage.getItem(key);
-  let days = Array(7).fill(false);
-
-  if (stored) {
-    try {
-      const parsed = JSON.parse(stored) as { week: string; days: boolean[] };
-      if (parsed.week === currentWeek) days = parsed.days;
-    } catch { /* fresh week */ }
-  }
-
-  days[dayIndex] = true;
-  await AsyncStorage.setItem(key, JSON.stringify({ week: currentWeek, days }));
+// Live store so cell fills on the box detail screen instantly tick the day
+// circle in the home-screen StreakSection. Without this, the component only
+// re-read AsyncStorage on mount and went stale after a fill.
+interface WeeklyActivityState {
+  userId: string | null;
+  days: boolean[];
+  load: (userId?: string | null) => Promise<void>;
+  markToday: (userId?: string | null) => Promise<void>;
 }
 
-export function StreakSection({ currentStreak, bestStreak, userId }: StreakSectionProps) {
+const useWeeklyActivityStore = create<WeeklyActivityState>((set, get) => ({
+  userId: null,
+  days: EMPTY_WEEK,
+
+  load: async (userId) => {
+    set({ userId: userId ?? null });
+    const stored = await AsyncStorage.getItem(storageKey(userId));
+    if (!stored) {
+      set({ days: EMPTY_WEEK });
+      return;
+    }
+    try {
+      const parsed = JSON.parse(stored) as { week: string; days: boolean[] };
+      if (parsed.week === getWeekId()) set({ days: parsed.days });
+      else set({ days: EMPTY_WEEK });
+    } catch {
+      set({ days: EMPTY_WEEK });
+    }
+  },
+
+  markToday: async (userId) => {
+    const currentWeek = getWeekId();
+    const dayIndex = (new Date().getDay() + 6) % 7; // Monday = 0
+    const current = get().days;
+    // No-op if today is already marked - avoids needless re-renders.
+    if (current[dayIndex]) return;
+    const next = current.slice();
+    next[dayIndex] = true;
+    set({ days: next });
+    await AsyncStorage.setItem(
+      storageKey(userId),
+      JSON.stringify({ week: currentWeek, days: next }),
+    );
+  },
+}));
+
+function useWeeklyActivity(userId?: string | null): boolean[] {
+  const days = useWeeklyActivityStore((s) => s.days);
+  const storedUserId = useWeeklyActivityStore((s) => s.userId);
+
+  useEffect(() => {
+    // First load, or user switched - rehydrate from AsyncStorage.
+    if (storedUserId !== (userId ?? null)) {
+      useWeeklyActivityStore.getState().load(userId);
+    }
+  }, [userId, storedUserId]);
+
+  return days;
+}
+
+export async function markTodayActive(userId?: string | null): Promise<void> {
+  // Make sure the store knows about this user before writing - a fresh app
+  // launch can hit this before the StreakSection has mounted.
+  if (useWeeklyActivityStore.getState().userId !== (userId ?? null)) {
+    await useWeeklyActivityStore.getState().load(userId);
+  }
+  await useWeeklyActivityStore.getState().markToday(userId);
+}
+
+export function StreakSection({ currentStreak, bestStreak, userId, freezesAvailable = 0 }: StreakSectionProps) {
+  const C = useAppTheme();
   const weeklyActivity = useWeeklyActivity(userId);
   const activeDays = weeklyActivity.filter(Boolean).length;
   const todayIndex = (new Date().getDay() + 6) % 7;
   const isNewBest = currentStreak > 0 && currentStreak >= bestStreak;
+  // borderLight in dark mode (#1B2A24) sits one hue away from surface
+  // (#162A22) - empty day circles vanish. A translucent white wash gives the
+  // inactive cells real contrast without competing with the accent fill.
+  const inactiveBg = C.mode === 'dark' ? 'rgba(255,255,255,0.10)' : C.borderLight;
 
   return (
     <View
@@ -97,35 +121,39 @@ export function StreakSection({ currentStreak, bestStreak, userId }: StreakSecti
         elevation: 2,
       }}
     >
-      {/* Top row — streak number + best badge */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+      {/* Top row - streak number + best badge */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        <View style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <View
             style={{
               width: 40,
               height: 40,
               borderRadius: 20,
-              backgroundColor: currentStreak > 0 ? '#FEF3C7' : C.border,
+              backgroundColor: currentStreak > 0 ? C.warnBg : inactiveBg,
               alignItems: 'center',
               justifyContent: 'center',
+              flexShrink: 0,
             }}
           >
             {currentStreak > 0 ? (
-              <Flame size={20} color="#F59E0B" />
+              <Flame size={20} color={C.warnText} />
             ) : (
               <Zap size={20} color={C.textFaint} />
             )}
           </View>
-          <View>
+          <View style={{ flex: 1, minWidth: 0 }}>
             <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
-              <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 24, color: C.textPrimary }}>
+              <Text style={{ fontFamily: 'DMSans_700Bold', fontSize: 24, lineHeight: 36, color: C.textPrimary }}>
                 {currentStreak}
               </Text>
-              <Text style={{ fontFamily: 'Inter_500Medium', fontSize: 13, color: C.textMuted }}>
+              <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 13, color: C.textMuted }}>
                 day{currentStreak !== 1 ? 's' : ''}
               </Text>
             </View>
-            <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 12, color: C.textMuted, marginTop: 1 }}>
+            <Text
+              numberOfLines={2}
+              style={{ fontFamily: 'DMSans_400Regular', fontSize: 12, lineHeight: 16, color: C.textMuted, marginTop: 1 }}
+            >
               {currentStreak === 0
                 ? 'Save today to start a streak'
                 : isNewBest
@@ -135,25 +163,54 @@ export function StreakSection({ currentStreak, bestStreak, userId }: StreakSecti
           </View>
         </View>
 
-        {/* Best badge */}
-        {isNewBest && currentStreak > 1 && (
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 4,
-              backgroundColor: '#FEF3C7',
-              paddingHorizontal: 10,
-              paddingVertical: 5,
-              borderRadius: 12,
-            }}
-          >
-            <Trophy size={12} color="#F59E0B" />
-            <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 11, color: '#B45309' }}>
-              NEW BEST
-            </Text>
-          </View>
-        )}
+        <View style={{ flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          {/* Streak freeze chip - shown whenever the user has at least one. */}
+          {freezesAvailable > 0 && (
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 4,
+                backgroundColor: C.accentLight,
+                paddingHorizontal: 10,
+                paddingVertical: 5,
+                borderRadius: 12,
+              }}
+            >
+              <Shield size={12} color={C.accent} />
+              <Text
+                allowFontScaling={false}
+                style={{ fontFamily: 'DMSans_700Bold', fontSize: 11, color: C.accent }}
+              >
+                {freezesAvailable}
+              </Text>
+            </View>
+          )}
+
+          {/* Best badge */}
+          {isNewBest && currentStreak > 1 && (
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 4,
+                backgroundColor: C.warnBg,
+                paddingHorizontal: 10,
+                paddingVertical: 5,
+                borderRadius: 12,
+              }}
+            >
+              <Trophy size={12} color={C.warnText} />
+              <Text
+                allowFontScaling={false}
+                numberOfLines={1}
+                style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 11, color: C.warnText }}
+              >
+                NEW BEST
+              </Text>
+            </View>
+          )}
+        </View>
       </View>
 
       {/* Weekly activity grid */}
@@ -171,8 +228,9 @@ export function StreakSection({ currentStreak, bestStreak, userId }: StreakSecti
           return (
             <View key={i} style={{ alignItems: 'center', gap: 6, flex: 1 }}>
               <Text
+                allowFontScaling={false}
                 style={{
-                  fontFamily: 'Inter_500Medium',
+                  fontFamily: 'DMSans_500Medium',
                   fontSize: 11,
                   color: isToday ? C.textPrimary : C.textFaint,
                 }}
@@ -184,7 +242,7 @@ export function StreakSection({ currentStreak, bestStreak, userId }: StreakSecti
                   width: 28,
                   height: 28,
                   borderRadius: 14,
-                  backgroundColor: isActive ? C.accent : C.border,
+                  backgroundColor: isActive ? C.accent : inactiveBg,
                   borderWidth: isToday && !isActive ? 2 : 0,
                   borderColor: C.accent,
                   alignItems: 'center',
@@ -192,7 +250,14 @@ export function StreakSection({ currentStreak, bestStreak, userId }: StreakSecti
                 }}
               >
                 {isActive && (
-                  <Text style={{ fontSize: 12, color: '#FFFFFF', fontFamily: 'Inter_700Bold' }}>
+                  <Text
+                    allowFontScaling={false}
+                    style={{
+                      fontSize: 12,
+                      color: C.mode === 'dark' ? C.buttonPrimaryText : '#FFFFFF',
+                      fontFamily: 'DMSans_700Bold',
+                    }}
+                  >
                     ✓
                   </Text>
                 )}
@@ -210,16 +275,25 @@ export function StreakSection({ currentStreak, bestStreak, userId }: StreakSecti
             alignItems: 'center',
             justifyContent: 'space-between',
             marginBottom: 6,
+            gap: 8,
           }}
         >
-          <Text style={{ fontFamily: 'Inter_500Medium', fontSize: 12, color: C.textMuted }}>
+          <Text
+            allowFontScaling={false}
+            numberOfLines={1}
+            style={{ flex: 1, minWidth: 0, fontFamily: 'DMSans_500Medium', fontSize: 12, color: C.textMuted }}
+          >
             This week
           </Text>
-          <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 12, color: C.textPrimary }}>
+          <Text
+            allowFontScaling={false}
+            numberOfLines={1}
+            style={{ flexShrink: 0, fontFamily: 'DMSans_600SemiBold', fontSize: 12, color: C.textPrimary }}
+          >
             {activeDays}/7
           </Text>
         </View>
-        <View style={{ backgroundColor: C.border, height: 4, borderRadius: 2 }}>
+        <View style={{ backgroundColor: inactiveBg, height: 4, borderRadius: 2 }}>
           <View
             style={{
               backgroundColor: activeDays === 7 ? '#22C55E' : C.accent,

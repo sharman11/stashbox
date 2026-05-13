@@ -68,7 +68,7 @@ export async function importBackup(userId: string): Promise<{ imported: number }
   try {
     backup = JSON.parse(content);
   } catch {
-    throw new Error('Invalid backup file — could not parse JSON.');
+    throw new Error('Invalid backup file - could not parse JSON.');
   }
 
   if (backup.version !== 1) {

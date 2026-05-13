@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, BounceIn } from 'react-native-reanimated';
 
+import { useAppReadyStore } from '@/lib/stores/app-ready';
+import { useAppTheme } from '@/lib/stores/theme';
+
 const STORAGE_KEY = 'stashbox_last_daily_bonus';
 
 const GREETINGS = [
@@ -18,13 +21,19 @@ const GREETINGS = [
 ];
 
 export function DailyBonus() {
+  const C = useAppTheme();
   const [visible, setVisible] = useState(false);
   const [greeting, setGreeting] = useState(GREETINGS[0]);
   const [streak, setStreak] = useState(1);
+  // Wait until the splash animation has finished before evaluating the bonus —
+  // otherwise the Modal renders above the splash on Android and the user sees
+  // a popup before they're "safely" on Home.
+  const splashExited = useAppReadyStore((s) => s.splashExited);
 
   useEffect(() => {
+    if (!splashExited) return;
     checkBonus();
-  }, []);
+  }, [splashExited]);
 
   const checkBonus = async () => {
     const today = new Date().toISOString().split('T')[0];
@@ -46,6 +55,10 @@ export function DailyBonus() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
+  const handleDismiss = () => {
+    setVisible(false);
+  };
+
   if (!visible) return null;
 
   return (
@@ -53,18 +66,20 @@ export function DailyBonus() {
       <Animated.View
         entering={FadeIn.duration(200)}
         exiting={FadeOut.duration(200)}
-        style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.4)' }}
+        style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.overlay }}
       >
-        <Animated.View entering={BounceIn.duration(400).delay(100)}>
+        <Animated.View
+          entering={BounceIn.duration(400).delay(100)}
+          style={{ width: '85%', maxWidth: 360 }}
+        >
           <View
             style={{
-              backgroundColor: '#FFFFFF',
+              backgroundColor: C.surface,
               borderRadius: 20,
               paddingTop: 32,
               paddingBottom: 24,
               paddingHorizontal: 28,
               alignItems: 'center',
-              width: 300,
               shadowColor: 'rgba(0,0,0,0.12)',
               shadowOffset: { width: 0, height: 12 },
               shadowOpacity: 1,
@@ -77,7 +92,7 @@ export function DailyBonus() {
                 width: 64,
                 height: 64,
                 borderRadius: 20,
-                backgroundColor: '#E6F4EA',
+                backgroundColor: C.accentLight,
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
@@ -85,10 +100,15 @@ export function DailyBonus() {
               <Text style={{ fontSize: 32 }}>{greeting.emoji}</Text>
             </View>
             <Text
+              numberOfLines={2}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
               style={{
-                fontFamily: 'Inter_700Bold',
+                alignSelf: 'stretch',
+                fontFamily: 'DMSans_700Bold',
                 fontSize: 20,
-                color: '#0F1419',
+                lineHeight: 26,
+                color: C.textPrimary,
                 marginTop: 16,
                 textAlign: 'center',
               }}
@@ -102,22 +122,23 @@ export function DailyBonus() {
                   alignItems: 'center',
                   gap: 4,
                   marginTop: 8,
-                  backgroundColor: '#FEF3C7',
+                  backgroundColor: C.warnBg,
                   paddingHorizontal: 12,
                   paddingVertical: 5,
                   borderRadius: 12,
                 }}
               >
                 <Text style={{ fontSize: 14 }}>🔥</Text>
-                <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 13, color: '#B45309' }}>
+                <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 13, color: C.warnText }}>
                   {streak} day streak
                 </Text>
               </View>
             )}
+
             <Pressable
-              onPress={() => setVisible(false)}
+              onPress={handleDismiss}
               style={{
-                backgroundColor: '#1DB954',
+                backgroundColor: C.buttonPrimaryBg,
                 borderRadius: 14,
                 paddingVertical: 14,
                 marginTop: 24,
@@ -125,8 +146,12 @@ export function DailyBonus() {
                 alignItems: 'center',
               }}
             >
-              <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 16, color: '#FFFFFF' }}>
-                Let's save!
+              <Text
+                allowFontScaling={false}
+                numberOfLines={1}
+                style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 16, color: C.buttonPrimaryText }}
+              >
+                Let&apos;s save!
               </Text>
             </Pressable>
           </View>

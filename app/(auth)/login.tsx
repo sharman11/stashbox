@@ -1,6 +1,7 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Eye, EyeOff } from 'lucide-react-native';
+import { Eye, EyeOff, Lock, Mail, Wallet } from 'lucide-react-native';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,23 +13,17 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { resetPassword, signInWithEmail } from '@/lib/auth';
-
-const C = {
-  accent: '#1DB954',
-  accentLight: '#E6F4EA',
-  pageBg: '#F5F7FA',
-  surface: '#FFFFFF',
-  textPrimary: '#0F1419',
-  textSecondary: '#6B7280',
-  textMuted: '#9CA3AF',
-  textFaint: '#D1D5DB',
-  border: '#E5E7EB',
-};
+import { useSessionStore } from '@/lib/stores/session';
+import { useAppTheme } from '@/lib/stores/theme';
 
 export default function LoginScreen() {
+  const C = useAppTheme();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const refresh = useSessionStore((s) => s.refresh);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -43,13 +38,21 @@ export default function LoginScreen() {
     if (!isValid) return;
     setError(null);
     setLoading(true);
+    useSessionStore.getState().setTransitioning(true);
     try {
       await signInWithEmail(email.trim(), password);
-      // onAuthStateChange listener will handle navigation
+      await refresh();
+      const snap = useSessionStore.getState();
+      if (snap.userId) {
+        const { useProfileStore } = await import('@/lib/stores/profile');
+        await useProfileStore.getState().load(snap.userId);
+      }
+      router.replace('/');
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Something went wrong');
     } finally {
       setLoading(false);
+      useSessionStore.getState().setTransitioning(false);
     }
   };
 
@@ -67,115 +70,359 @@ export default function LoginScreen() {
     }
   };
 
-
   return (
     <View style={{ flex: 1, backgroundColor: C.pageBg }}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
         style={{ flex: 1 }}
       >
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40, flexGrow: 1 }}>
-          <View style={{ paddingTop: 60 }}>
-            {/* Header */}
-            <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 32, color: C.textPrimary }}>
-              Welcome{'\n'}back
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 24) + 120 }}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator={false}
+          automaticallyAdjustKeyboardInsets
+        >
+          {/* ── Hero ── */}
+          <LinearGradient
+            colors={[C.heroTop, C.heroMid, C.heroBot]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={{
+              paddingTop: insets.top + 28,
+              paddingBottom: 28,
+              paddingHorizontal: 24,
+              alignItems: 'center',
+            }}
+          >
+            <View
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 20,
+                backgroundColor: 'rgba(255,255,255,0.14)',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.2)',
+                overflow: 'hidden',
+              }}
+            >
+              <Text
+                allowFontScaling={false}
+                maxFontSizeMultiplier={1}
+                style={{ fontSize: 32, textAlign: 'center', includeFontPadding: false }}
+              >
+                👋
+              </Text>
+            </View>
+            <Text
+              allowFontScaling={false}
+              maxFontSizeMultiplier={1}
+              numberOfLines={1}
+              style={{
+                fontFamily: 'DMSans_400Regular',
+                fontSize: 24,
+                color: '#FFFFFF',
+                marginTop: 16,
+                textAlign: 'center',
+                includeFontPadding: false,
+              }}
+            >
+              Welcome back
             </Text>
-            <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 15, color: C.textSecondary, marginTop: 8 }}>
-              Log in to continue saving.
-            </Text>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                marginTop: 8,
+                maxWidth: '100%',
+              }}
+            >
+              <Wallet size={14} color="rgba(255,255,255,0.75)" />
+              <Text
+                allowFontScaling={false}
+                maxFontSizeMultiplier={1}
+                numberOfLines={1}
+                style={{
+                  fontFamily: 'DMSans_400Regular',
+                  fontSize: 13,
+                  color: 'rgba(255,255,255,0.75)',
+                  includeFontPadding: false,
+                }}
+              >
+                Your savings streak is waiting
+              </Text>
+            </View>
+          </LinearGradient>
 
-            {/* Error */}
+          {/* ── Form ── */}
+          <View style={{ paddingHorizontal: 24, paddingTop: 24 }}>
             {error && (
-              <View style={{ backgroundColor: '#FEF2F2', borderRadius: 12, padding: 12, marginTop: 16 }}>
-                <Text style={{ fontFamily: 'Inter_500Medium', fontSize: 13, color: '#DC2626' }}>{error}</Text>
+              <View
+                style={{
+                  backgroundColor: C.errorBg,
+                  borderRadius: 12,
+                  padding: 12,
+                  marginBottom: 16,
+                  borderWidth: 1,
+                  borderColor: C.errorBg,
+                }}
+              >
+                <Text
+                  allowFontScaling={false}
+                  maxFontSizeMultiplier={1}
+                  numberOfLines={4}
+                  ellipsizeMode="tail"
+                  selectable
+                  style={{ fontFamily: 'DMSans_400Regular', fontSize: 13, lineHeight: 18, color: C.errorText, includeFontPadding: false }}
+                >
+                  {error}
+                </Text>
               </View>
             )}
 
-            {/* Reset sent */}
             {resetSent && (
-              <View style={{ backgroundColor: C.accentLight, borderRadius: 12, padding: 12, marginTop: 16 }}>
-                <Text style={{ fontFamily: 'Inter_500Medium', fontSize: 13, color: '#166534' }}>
+              <View
+                style={{
+                  backgroundColor: C.accentLight,
+                  borderRadius: 12,
+                  padding: 12,
+                  marginBottom: 16,
+                  borderWidth: 1,
+                  borderColor: C.accentLight,
+                }}
+              >
+                <Text
+                  allowFontScaling={false}
+                  maxFontSizeMultiplier={1}
+                  numberOfLines={3}
+                  ellipsizeMode="middle"
+                  selectable
+                  style={{ fontFamily: 'DMSans_400Regular', fontSize: 13, lineHeight: 18, color: C.accent, includeFontPadding: false }}
+                >
                   Password reset email sent to {email}
                 </Text>
               </View>
             )}
 
-            {/* Form */}
-            <View style={{ marginTop: 28, gap: 12 }}>
-              <View style={{ backgroundColor: C.surface, borderRadius: 14, borderWidth: 1, borderColor: C.border, paddingHorizontal: 16, paddingVertical: 12 }}>
-                <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 12, color: C.textMuted, marginBottom: 4 }}>Email</Text>
-                <TextInput
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="you@example.com"
-                  placeholderTextColor={C.textFaint}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoComplete="email"
-                  style={{ fontSize: 16, fontFamily: 'Inter_500Medium', color: C.textPrimary, padding: 0 }}
-                />
-              </View>
+            <View style={{ gap: 10 }}>
+              <InputField
+                icon={<Mail size={18} color={C.textMuted} />}
+                label="Email"
+                value={email}
+                onChangeText={setEmail}
+                placeholder="you@example.com"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+              />
 
-              <View style={{ backgroundColor: C.surface, borderRadius: 14, borderWidth: 1, borderColor: C.border, paddingHorizontal: 16, paddingVertical: 12 }}>
-                <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 12, color: C.textMuted, marginBottom: 4 }}>Password</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <TextInput
-                    value={password}
-                    onChangeText={setPassword}
-                    placeholder="Your password"
-                    placeholderTextColor={C.textFaint}
-                    secureTextEntry={!showPassword}
-                    autoComplete="password"
-                    style={{ flex: 1, fontSize: 16, fontFamily: 'Inter_500Medium', color: C.textPrimary, padding: 0 }}
-                  />
-                  <Pressable onPress={() => setShowPassword((v) => !v)}>
-                    {showPassword ? <EyeOff size={18} color={C.textMuted} /> : <Eye size={18} color={C.textMuted} />}
+              <InputField
+                icon={<Lock size={18} color={C.textMuted} />}
+                label="Password"
+                value={password}
+                onChangeText={setPassword}
+                placeholder="Your password"
+                secureTextEntry={!showPassword}
+                autoComplete="password"
+                trailing={
+                  <Pressable onPress={() => setShowPassword((v) => !v)} hitSlop={8}>
+                    {showPassword ? (
+                      <EyeOff size={18} color={C.textMuted} />
+                    ) : (
+                      <Eye size={18} color={C.textMuted} />
+                    )}
                   </Pressable>
-                </View>
-              </View>
+                }
+              />
+            </View>
 
-              <Pressable onPress={handleForgotPassword} style={{ alignSelf: 'flex-end' }}>
-                <Text style={{ fontFamily: 'Inter_500Medium', fontSize: 13, color: C.accent }}>
+            {/* Spacer above forgot password */}
+            <View style={{ height: 16 }} />
+
+            <View style={{ alignItems: 'flex-end' }}>
+              <Pressable onPress={handleForgotPassword} hitSlop={8}>
+                <Text
+                  allowFontScaling={false}
+                  maxFontSizeMultiplier={1}
+                  numberOfLines={1}
+                  style={{
+                    fontFamily: 'DMSans_400Regular',
+                    fontSize: 13,
+                    color: C.accent,
+                    includeFontPadding: false,
+                  }}
+                >
                   Forgot password?
                 </Text>
               </Pressable>
             </View>
 
-            {/* Login button */}
+            {/* Spacer between forgot password and button */}
+            <View style={{ height: 32 }} />
+
             <Pressable
               onPress={handleLogin}
               disabled={!isValid || loading}
-              style={{
-                backgroundColor: isValid ? C.accent : '#F3F4F6',
-                borderRadius: 14,
-                paddingVertical: 16,
-                alignItems: 'center',
-                marginTop: 20,
-              }}
+              style={({ pressed }) => ({
+                borderRadius: 16,
+                transform: [{ scale: pressed ? 0.98 : 1 }],
+                shadowColor: C.buttonPrimaryBg,
+                shadowOffset: { width: 0, height: 8 },
+                shadowOpacity: isValid ? 0.35 : 0,
+                shadowRadius: 20,
+                elevation: isValid ? 8 : 0,
+              })}
             >
-              {loading ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 16, color: isValid ? '#FFFFFF' : C.textFaint }}>
-                  Log in
-                </Text>
-              )}
+              <View
+                style={{
+                  backgroundColor: isValid ? C.buttonPrimaryBg : C.borderLight,
+                  borderRadius: 16,
+                  paddingVertical: 18,
+                  paddingHorizontal: 24,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 10,
+                }}
+              >
+                {loading ? (
+                  <ActivityIndicator color={C.buttonPrimaryText} />
+                ) : (
+                  <Text
+                    allowFontScaling={false}
+                    maxFontSizeMultiplier={1}
+                    numberOfLines={1}
+                    style={{
+                      fontFamily: 'DMSans_400Regular',
+                      fontSize: 16,
+                      color: isValid ? C.buttonPrimaryText : C.textMuted,
+                      includeFontPadding: false,
+                    }}
+                  >
+                    Log in
+                  </Text>
+                )}
+              </View>
             </Pressable>
 
-            {/* Footer */}
-            <View style={{ alignItems: 'center', marginTop: 28, gap: 16 }}>
-              <Pressable onPress={() => router.replace('/(auth)/signup')}>
-                <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 14, color: C.textSecondary }}>
-                  Don't have an account?{' '}
-                  <Text style={{ fontFamily: 'Inter_600SemiBold', color: C.accent }}>Sign up</Text>
+            <View style={{ alignItems: 'center', marginTop: 20 }}>
+              <Pressable onPress={() => router.replace('/(auth)/signup')} hitSlop={8}>
+                <Text
+                  allowFontScaling={false}
+                  maxFontSizeMultiplier={1}
+                  numberOfLines={1}
+                  style={{
+                    fontFamily: 'DMSans_400Regular',
+                    fontSize: 14,
+                    color: C.textSecondary,
+                    textAlign: 'center',
+                    includeFontPadding: false,
+                  }}
+                >
+                  New here?{' '}
+                  <Text style={{ fontFamily: 'DMSans_400Regular', color: C.accent }}>
+                    Create an account
+                  </Text>
                 </Text>
               </Pressable>
-
             </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+    </View>
+  );
+}
+
+/* ── Reusable input field ─────────────────────────────────────────── */
+
+interface InputFieldProps {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  onChangeText: (v: string) => void;
+  placeholder?: string;
+  keyboardType?: 'default' | 'email-address';
+  autoCapitalize?: 'none' | 'sentences';
+  autoComplete?: 'email' | 'password' | 'password-new';
+  secureTextEntry?: boolean;
+  trailing?: React.ReactNode;
+  errored?: boolean;
+}
+
+function InputField({
+  icon,
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  keyboardType,
+  autoCapitalize,
+  autoComplete,
+  secureTextEntry,
+  trailing,
+  errored,
+}: InputFieldProps) {
+  const C = useAppTheme();
+  const [focused, setFocused] = useState(false);
+
+  return (
+    <View
+      style={{
+        backgroundColor: C.surface,
+        borderRadius: 14,
+        borderWidth: 1.5,
+        borderColor: errored ? '#EF4444' : focused ? C.accent : C.border,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+      }}
+    >
+      {icon}
+      <View style={{ flex: 1 }}>
+        <Text
+          allowFontScaling={false}
+          maxFontSizeMultiplier={1}
+          numberOfLines={1}
+          style={{
+            fontFamily: 'DMSans_400Regular',
+            fontSize: 11,
+            color: C.textMuted,
+            marginBottom: 2,
+            includeFontPadding: false,
+          }}
+        >
+          {label}
+        </Text>
+        <TextInput
+          value={value}
+          onChangeText={onChangeText}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          placeholder={placeholder}
+          placeholderTextColor={C.textFaint}
+          keyboardType={keyboardType}
+          autoCapitalize={autoCapitalize}
+          autoComplete={autoComplete}
+          secureTextEntry={secureTextEntry}
+          allowFontScaling={false}
+          maxFontSizeMultiplier={1}
+          style={{
+            fontSize: 15,
+            fontFamily: 'DMSans_400Regular',
+            color: C.textPrimary,
+            padding: 0,
+            includeFontPadding: false,
+          }}
+        />
+      </View>
+      {trailing}
     </View>
   );
 }

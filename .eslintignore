@@ -1,0 +1,6 @@
+landing/
+lib/archive/
+supabase/functions/
+.expo/
+node_modules/
+dist/

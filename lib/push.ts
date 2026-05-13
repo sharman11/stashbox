@@ -15,7 +15,7 @@ Notifications.setNotificationHandler({
   }),
 });
 
-// Handle notification tap — navigate to the vault
+// Handle notification tap - navigate to the vault
 let notificationListenerSetup = false;
 
 export function setupNotificationListener(): void {
@@ -37,7 +37,7 @@ export async function registerForPushNotifications(userId: string): Promise<stri
 
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
 
-  // Don't ask for permission here — wait until user enables in settings
+  // Don't ask for permission here - wait until user enables in settings
   // Only register if already granted
   if (existingStatus !== 'granted') {
     return null;
@@ -70,7 +70,7 @@ export async function unregisterNotifications(userId: string): Promise<void> {
       .eq('user_id', userId)
       .eq('token', tokenData.data);
   } catch {
-    // Token retrieval failed — already unregistered
+    // Token retrieval failed - already unregistered
   }
 }
 
@@ -89,6 +89,23 @@ async function registerToken(userId: string): Promise<string | null> {
 
   const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
   const token = tokenData.data;
+
+  // Replace any prior tokens for this user with this device's current token.
+  // Without this, switching between Expo Go ↔ standalone build (or even just
+  // reinstalling the prod APK) leaves stale rows in the DB and the cron sends
+  // to all of them. The visible symptom is notifications attributed to Expo
+  // Go (the old token routes through Expo Go's notification channel) even
+  // though the user is on the standalone Stashbox build.
+  //
+  // Trade-off: this caps each user at one active push token, so a user signed
+  // in on two devices will only ever notify on whichever device registered
+  // most recently. That's the right default for the current 1-user-1-device
+  // model — revisit if multi-device support lands.
+  await supabase
+    .from('push_tokens')
+    .delete()
+    .eq('user_id', userId)
+    .neq('token', token);
 
   await supabase.from('push_tokens').upsert(
     {

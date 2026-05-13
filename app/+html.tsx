@@ -14,12 +14,6 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="theme-color" content="#0B3D2E" />
         <meta name="application-name" content="Stashbox" />
 
-        {/* iOS Add to Home Screen */}
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="Stashbox" />
-        <link rel="apple-touch-icon" href="/assets/images/icon.png" />
-
         {/* SEO */}
         <meta name="description" content="Save money daily, one cell at a time. Set a goal, fill cells each day, and watch your savings grow." />
 

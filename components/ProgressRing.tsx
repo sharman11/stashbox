@@ -59,7 +59,7 @@ export function ProgressRing({
           <Text
             numberOfLines={1}
             adjustsFontSizeToFit
-            style={{ color: textColor, fontSize: size * 0.16, fontFamily: 'Inter_700Bold' }}
+            style={{ color: textColor, fontSize: size * 0.16, fontFamily: 'DMSans_700Bold' }}
           >
             {label}
           </Text>
@@ -69,7 +69,7 @@ export function ProgressRing({
             style={{
               color: sublabelColor,
               fontSize: size * 0.08,
-              fontFamily: 'Inter_500Medium',
+              fontFamily: 'DMSans_500Medium',
               marginTop: 2,
             }}
           >

@@ -1,22 +1,56 @@
-import { BookOpen, Lightbulb, TrendingUp } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef, useState } from 'react';
-import { NativeScrollEvent, NativeSyntheticEvent, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import {
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  ScrollView,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
 
-import { getDailyFacts } from '@/lib/money-facts';
+import { type FactType, getDailyFacts } from '@/lib/money-facts';
+import { useProfileStore } from '@/lib/stores/profile';
+import { useAppTheme } from '@/lib/stores/theme';
 
-const CARDS = [
-  { Icon: Lightbulb, color: '#4338CA', bg: '#E0E7FF', cardBg: '#EEF2FF', label: 'DID YOU KNOW?' },
-  { Icon: BookOpen, color: '#0F766E', bg: '#CCFBF1', cardBg: '#F0FDFA', label: 'SAVINGS TIP' },
-  { Icon: TrendingUp, color: '#7E22CE', bg: '#E9D5FF', cardBg: '#F3E8FF', label: 'INSIGHT' },
-];
+interface TypeStyle {
+  /** Two-stop diagonal gradient. Darker shade goes bottom-right so the
+   *  watermark emoji in the top-right reads against the brighter region. */
+  gradient: [string, string];
+  /** Caps-locked label rendered in the top-left pill. Kept short so it
+   *  never wraps even at 1.5× system font scale. */
+  label: string;
+  /** Colour for the active dot under each card. Picks the first gradient
+   *  stop so the dot visually echoes the card it belongs to. */
+  dotColor: string;
+}
 
-const AUTO_SCROLL_MS = 5000;
+const STYLES: Record<FactType, TypeStyle> = {
+  hack:      { gradient: ['#6366F1', '#4338CA'], label: 'MONEY HACK',     dotColor: '#6366F1' },
+  myth:      { gradient: ['#F97316', '#C2410C'], label: 'MYTH BUSTED',    dotColor: '#F97316' },
+  challenge: { gradient: ['#10B981', '#047857'], label: 'CHALLENGE',      dotColor: '#10B981' },
+  mind:      { gradient: ['#A855F7', '#7E22CE'], label: 'MIND TRICK',     dotColor: '#A855F7' },
+  stat:      { gradient: ['#06B6D4', '#0E7490'], label: 'BY THE NUMBERS', dotColor: '#06B6D4' },
+  story:     { gradient: ['#F59E0B', '#B45309'], label: 'STORY TIME',     dotColor: '#F59E0B' },
+  quote:     { gradient: ['#475569', '#1E293B'], label: 'WORDS TO LIVE BY', dotColor: '#475569' },
+};
+
+const AUTO_SCROLL_MS = 6500;
+const CARD_COUNT = 3;
 
 export function FactCarousel() {
+  const C = useAppTheme();
   const { width } = useWindowDimensions();
   const cardWidth = width - 48;
-  const snapInterval = cardWidth + 10;
-  const facts = getDailyFacts(3);
+  const snapInterval = cardWidth + 12;
+  // Pull the primary currency so tip amounts read native to the user's locale
+  // — ₹100 for INR, $1 for USD, ¥150 for JPY, etc. Falls back to USD before
+  // the profile is loaded, which is rare since the carousel only renders
+  // after auth/onboarding.
+  const primaryCurrency = useProfileStore((s) => s.profile?.defaultCurrency) ?? 'USD';
+
+  const facts = getDailyFacts(CARD_COUNT, primaryCurrency);
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -26,7 +60,8 @@ export function FactCarousel() {
     scrollRef.current?.scrollTo({ x: index * snapInterval, animated: true });
   };
 
-  // Auto-scroll
+  // Auto-advance — pauses while the user is dragging so a manual scroll never
+  // gets snatched mid-gesture by the timer.
   useEffect(() => {
     timerRef.current = setInterval(() => {
       if (userScrolling.current) return;
@@ -45,15 +80,7 @@ export function FactCarousel() {
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetX = e.nativeEvent.contentOffset.x;
     const index = Math.round(offsetX / snapInterval);
-    setActiveIndex(index);
-  };
-
-  const handleScrollBegin = () => {
-    userScrolling.current = true;
-  };
-
-  const handleScrollEnd = () => {
-    userScrolling.current = false;
+    if (index !== activeIndex) setActiveIndex(index);
   };
 
   return (
@@ -65,51 +92,153 @@ export function FactCarousel() {
         decelerationRate="fast"
         showsHorizontalScrollIndicator={false}
         onScroll={handleScroll}
-        onScrollBeginDrag={handleScrollBegin}
-        onScrollEndDrag={handleScrollEnd}
+        onScrollBeginDrag={() => { userScrolling.current = true; }}
+        onScrollEndDrag={() => { userScrolling.current = false; }}
         scrollEventThrottle={16}
-        contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}
+        contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
       >
         {facts.map((fact, i) => {
-          const card = CARDS[i % CARDS.length];
-
+          const style = STYLES[fact.type];
           return (
-            <View
-              key={i}
-              style={{
-                width: cardWidth, backgroundColor: card.cardBg, borderRadius: 14, padding: 14,
-                flexDirection: 'row', alignItems: 'flex-start', gap: 10,
-              }}
-            >
-              <View style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: card.bg, alignItems: 'center', justifyContent: 'center', marginTop: 1 }}>
-                <card.Icon size={14} color={card.color} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 10, color: card.color, letterSpacing: 0.5 }}>
-                  {card.label}
+            <Animated.View key={`${fact.type}-${i}`} entering={FadeIn.duration(360).delay(i * 70)}>
+              <LinearGradient
+                colors={style.gradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{
+                  width: cardWidth,
+                  borderRadius: 22,
+                  padding: 20,
+                  minHeight: 168,
+                  overflow: 'hidden',
+                  justifyContent: 'space-between',
+                  shadowColor: style.dotColor,
+                  shadowOffset: { width: 0, height: 8 },
+                  shadowOpacity: 0.18,
+                  shadowRadius: 18,
+                  elevation: 4,
+                }}
+              >
+                {/* Decorative oversized emoji watermark in the top-right.
+                    Pulled outside the visible bounds so only ~half is
+                    visible — gives the card depth without competing with
+                    the hero emoji or the headline. */}
+                <Text
+                  pointerEvents="none"
+                  allowFontScaling={false}
+                  style={{
+                    position: 'absolute',
+                    right: -20,
+                    top: -34,
+                    fontSize: 150,
+                    opacity: 0.14,
+                    transform: [{ rotate: '14deg' }],
+                  }}
+                >
+                  {fact.emoji}
                 </Text>
-                <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 12, color: '#4B5563', lineHeight: 18, marginTop: 3 }}>
-                  {fact.fact}
-                </Text>
-              </View>
-            </View>
+
+                {/* Top row: type pill on the left, hero emoji on the right. */}
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <View
+                    style={{
+                      backgroundColor: 'rgba(255,255,255,0.22)',
+                      borderRadius: 999,
+                      paddingHorizontal: 10,
+                      paddingVertical: 4,
+                    }}
+                  >
+                    <Text
+                      allowFontScaling={false}
+                      maxFontSizeMultiplier={1}
+                      style={{
+                        fontFamily: 'DMSans_700Bold',
+                        fontSize: 9,
+                        color: '#FFFFFF',
+                        letterSpacing: 1.4,
+                        includeFontPadding: false,
+                      }}
+                    >
+                      {style.label}
+                    </Text>
+                  </View>
+                  <Text
+                    allowFontScaling={false}
+                    style={{ fontSize: 30, includeFontPadding: false }}
+                  >
+                    {fact.emoji}
+                  </Text>
+                </View>
+
+                {/* Bottom block: headline + body. Spacing controlled by the
+                    parent's justifyContent: 'space-between'. */}
+                <View>
+                  <Text
+                    maxFontSizeMultiplier={1.2}
+                    numberOfLines={2}
+                    style={{
+                      fontFamily: 'DMSans_700Bold',
+                      fontSize: 18,
+                      lineHeight: 23,
+                      color: '#FFFFFF',
+                      letterSpacing: -0.3,
+                      includeFontPadding: false,
+                    }}
+                  >
+                    {fact.headline}
+                  </Text>
+                  <Text
+                    maxFontSizeMultiplier={1.2}
+                    numberOfLines={3}
+                    style={{
+                      fontFamily: 'DMSans_400Regular',
+                      fontSize: 13,
+                      lineHeight: 19,
+                      color: 'rgba(255,255,255,0.92)',
+                      marginTop: 6,
+                      includeFontPadding: false,
+                    }}
+                  >
+                    {fact.body}
+                  </Text>
+                </View>
+              </LinearGradient>
+            </Animated.View>
           );
         })}
       </ScrollView>
 
-      {/* Page dots */}
-      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 10 }}>
-        {facts.map((_, i) => (
-          <View
-            key={i}
-            style={{
-              width: activeIndex === i ? 16 : 6,
-              height: 6,
-              borderRadius: 3,
-              backgroundColor: activeIndex === i ? CARDS[i % CARDS.length].cardBg : '#E5E7EB',
-            }}
-          />
-        ))}
+      {/* Page dots — active dot stretches into a pill and adopts the active
+          card's accent so the dot row visually echoes the card on screen. */}
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: 6,
+          marginTop: 14,
+        }}
+      >
+        {facts.map((fact, i) => {
+          const active = activeIndex === i;
+          return (
+            <View
+              key={`dot-${i}`}
+              style={{
+                width: active ? 18 : 6,
+                height: 6,
+                borderRadius: 3,
+                backgroundColor: active ? STYLES[fact.type].dotColor : C.borderLight,
+              }}
+            />
+          );
+        })}
       </View>
     </View>
   );

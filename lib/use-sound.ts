@@ -2,10 +2,13 @@ import { useAudioPlayer } from 'expo-audio';
 import { useCallback } from 'react';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const coinDropAsset = require('@/assets/sounds/coin-drop.wav');
+const coinDropAsset = require('@/assets/sounds/coin-drop.mp3');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const completeAsset = require('@/assets/sounds/complete.wav');
 
 const SOUNDS = {
   coin: coinDropAsset,
+  complete: completeAsset,
 } as const;
 
 type SoundName = keyof typeof SOUNDS;
@@ -18,7 +21,7 @@ export function useSoundEffect(name: SoundName) {
       player.seekTo(0);
       player.play();
     } catch {
-      // Silently fail — sound is non-critical
+      // Silently fail - sound is non-critical
     }
   }, [player]);
 

@@ -1,32 +1,36 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 
-import { DEFAULT_AVATAR } from '../avatars';
+import { DEFAULT_AVATAR, getAvatarById } from '../avatars';
 
 interface AvatarState {
-  emoji: string;
+  /** Catalog id of the chosen avatar - emoji glyph for emoji avatars,
+   *  slug for image avatars (e.g. `'adv-3'`). */
+  id: string;
   load: () => Promise<void>;
-  setAvatar: (emoji: string) => Promise<void>;
+  setAvatar: (id: string) => Promise<void>;
   reset: () => void;
 }
 
 const STORAGE_KEY = 'stashbox_avatar';
 
 export const useAvatarStore = create<AvatarState>((set) => ({
-  emoji: DEFAULT_AVATAR.emoji,
+  id: DEFAULT_AVATAR.id,
 
   load: async () => {
     const stored = await AsyncStorage.getItem(STORAGE_KEY);
-    if (stored) set({ emoji: stored });
+    // Verify against the catalog so a stored value that has since been
+    // removed from the app falls back to the default cleanly.
+    if (stored && getAvatarById(stored)) set({ id: stored });
   },
 
-  setAvatar: async (emoji) => {
-    set({ emoji });
-    await AsyncStorage.setItem(STORAGE_KEY, emoji);
+  setAvatar: async (id) => {
+    set({ id });
+    await AsyncStorage.setItem(STORAGE_KEY, id);
   },
 
   reset: () => {
-    set({ emoji: DEFAULT_AVATAR.emoji });
+    set({ id: DEFAULT_AVATAR.id });
     AsyncStorage.removeItem(STORAGE_KEY);
   },
 }));

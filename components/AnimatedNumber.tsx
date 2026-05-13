@@ -6,9 +6,25 @@ interface AnimatedNumberProps {
   duration?: number;
   formatter: (n: number) => string;
   style?: TextStyle;
+  /** Constrain to a single line and shrink to fit the container if the
+   *  formatted value would otherwise overflow. */
+  numberOfLines?: number;
+  adjustsFontSizeToFit?: boolean;
+  /** Lower bound for adjustsFontSizeToFit (1.0 = no shrink, 0.5 = 50%). */
+  minimumFontScale?: number;
+  allowFontScaling?: boolean;
 }
 
-export function AnimatedNumber({ value, duration = 800, formatter, style }: AnimatedNumberProps) {
+export function AnimatedNumber({
+  value,
+  duration = 800,
+  formatter,
+  style,
+  numberOfLines,
+  adjustsFontSizeToFit,
+  minimumFontScale,
+  allowFontScaling,
+}: AnimatedNumberProps) {
   const [display, setDisplay] = useState(0);
 
   useEffect(() => {
@@ -36,5 +52,15 @@ export function AnimatedNumber({ value, duration = 800, formatter, style }: Anim
     return () => clearInterval(timer);
   }, [value, duration]);
 
-  return <Text style={style}>{formatter(display)}</Text>;
+  return (
+    <Text
+      style={style}
+      numberOfLines={numberOfLines}
+      adjustsFontSizeToFit={adjustsFontSizeToFit}
+      minimumFontScale={minimumFontScale}
+      allowFontScaling={allowFontScaling}
+    >
+      {formatter(display)}
+    </Text>
+  );
 }

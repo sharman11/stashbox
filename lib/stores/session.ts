@@ -10,7 +10,11 @@ interface SessionState {
   email: string | null;
   loading: boolean;
   error: string | null;
+  /** True while an auth flow (login/signup/logout) is mid-flight. AuthGuard skips routing during this window. */
+  transitioning: boolean;
   init: () => Promise<Subscription>;
+  refresh: () => Promise<void>;
+  setTransitioning: (v: boolean) => void;
   signOut: () => Promise<void>;
 }
 
@@ -22,24 +26,29 @@ export const useSessionStore = create<SessionState>((set) => ({
   email: null,
   loading: false,
   error: null,
+  transitioning: false,
+
+  setTransitioning: (v: boolean) => set({ transitioning: v }),
 
   init: async () => {
     set({ loading: true, error: null });
 
-    // Register listener FIRST — before any auth operations to avoid race conditions
+    // Register listener FIRST - before any auth operations to avoid race conditions
     // Guard against duplicate registration (StrictMode, remounts)
     let subscription: Subscription;
 
     if (!listenerRegistered) {
       const { data } = supabase.auth.onAuthStateChange((event, session) => {
-        // Ignore PASSWORD_RECOVERY — would need a dedicated reset screen
+        // Ignore PASSWORD_RECOVERY - would need a dedicated reset screen
         if (event === 'PASSWORD_RECOVERY') return;
 
         if (session?.user) {
+          const email = session.user.email ?? null;
+          const isAnonymous = !email && session.user.is_anonymous === true;
           set({
             userId: session.user.id,
-            isAnonymous: session.user.is_anonymous === true,
-            email: session.user.email ?? null,
+            isAnonymous,
+            email,
             loading: false,
           });
         } else {
@@ -54,7 +63,7 @@ export const useSessionStore = create<SessionState>((set) => ({
       subscription = data.subscription;
       listenerRegistered = true;
     } else {
-      // Already registered — create a dummy subscription for the return type
+      // Already registered - create a dummy subscription for the return type
       subscription = { id: '', callback: () => {}, unsubscribe: () => {} } as unknown as Subscription;
     }
 
@@ -64,14 +73,16 @@ export const useSessionStore = create<SessionState>((set) => ({
 
       if (sessionData.session?.user) {
         const user = sessionData.session.user;
+        const email = user.email ?? null;
+        const isAnonymous = !email && user.is_anonymous === true;
         set({
           userId: user.id,
-          isAnonymous: user.is_anonymous === true,
-          email: user.email ?? null,
+          isAnonymous,
+          email,
           loading: false,
         });
       } else {
-        // No session — create anonymous
+        // No session - create anonymous
         const { data, error } = await supabase.auth.signInAnonymously();
         if (error) throw new Error(`Anonymous sign-in failed: ${error.message}`);
         if (!data.user) throw new Error('Anonymous sign-in returned no user');
@@ -85,21 +96,38 @@ export const useSessionStore = create<SessionState>((set) => ({
     return subscription;
   },
 
+  refresh: async () => {
+    // Force refresh so the JWT picks up updated claims (e.g. is_anonymous flipping to false
+    // after updateUser converts an anon user to a permanent one).
+    const { data: refreshed } = await supabase.auth.refreshSession();
+    const session = refreshed.session ?? (await supabase.auth.getSession()).data.session;
+    if (session?.user) {
+      const email = session.user.email ?? null;
+      // Treat the user as anonymous only if they genuinely have no email.
+      // The is_anonymous claim can lag behind an updateUser conversion.
+      const isAnonymous = !email && session.user.is_anonymous === true;
+      set({
+        userId: session.user.id,
+        isAnonymous,
+        email,
+        loading: false,
+      });
+    }
+  },
+
   signOut: async () => {
     try {
-      // Reset related stores first
-      const { useProfileStore } = await import('./profile');
+      // Sign out first, then create fresh anonymous session.
+      // The onAuthStateChange listener updates userId, and the useEffect in
+      // useBootstrap reloads profile/moneyboxes for the new user.
+      // Do NOT reset profile store here - doing so flips `ready` to false,
+      // unmounts the router Stack, and blocks navigation.
+      await authSignOut();
+
       const { useMoneyboxesStore } = await import('./moneyboxes');
       const { useAvatarStore } = await import('./avatar');
-
-      useProfileStore.getState().reset();
       useMoneyboxesStore.getState().reset();
       useAvatarStore.getState().reset();
-
-      // Sign out and create fresh anonymous session atomically
-      // authSignOut uses scope: 'local' then signInAnonymously
-      // The onAuthStateChange listener handles the store update
-      await authSignOut();
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Sign out failed';
       set({ error: message });

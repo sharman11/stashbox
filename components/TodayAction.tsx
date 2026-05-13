@@ -112,11 +112,11 @@ export function TodayAction({ moneybox, cells, totalSaved, currency }: TodayActi
           style={{ padding: 20, alignItems: 'center' }}
         >
           <DoneCheckmark />
-          <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 16, color: '#FFFFFF', marginTop: 10 }}>
+          <Text style={{ fontFamily: 'DMSans_700Bold', fontSize: 16, color: '#FFFFFF', marginTop: 10 }}>
             Saved today
           </Text>
-          <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>
-            {moneybox.name} — tap to view grid
+          <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>
+            {moneybox.name} - tap to view grid
           </Text>
         </LinearGradient>
       </SpringPressable>
@@ -132,10 +132,10 @@ export function TodayAction({ moneybox, cells, totalSaved, currency }: TodayActi
         start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
         style={{ paddingTop: 20, paddingBottom: 16 }}
       >
-        {/* Total saved — small, top of card */}
+        {/* Total saved - small, top of card */}
         {totalSaved > 0 && (
           <View style={{ alignItems: 'center', marginBottom: 4 }}>
-            <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 11, color: 'rgba(255,255,255,0.5)', letterSpacing: 0.5 }}>
+            <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 11, color: 'rgba(255,255,255,0.5)', letterSpacing: 0.5 }}>
               TOTAL SAVED: {formatAmount(totalSaved, currency)}
             </Text>
           </View>
@@ -144,13 +144,13 @@ export function TodayAction({ moneybox, cells, totalSaved, currency }: TodayActi
         {/* Ring + amount */}
         <View style={{ alignItems: 'center' }}>
           <PulsingRing size={90}>
-            <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 20, color: '#FFFFFF' }}>
+            <Text style={{ fontFamily: 'DMSans_700Bold', fontSize: 20, color: '#FFFFFF' }}>
               {formatAmount(suggestion.amount, moneybox.currency)}
             </Text>
           </PulsingRing>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 }}>
             <Target size={11} color="rgba(255,255,255,0.5)" />
-            <Text style={{ fontFamily: 'Inter_500Medium', fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>
+            <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>
               {moneybox.name}
             </Text>
           </View>
@@ -167,7 +167,7 @@ export function TodayAction({ moneybox, cells, totalSaved, currency }: TodayActi
               borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)',
             }}
           >
-            <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 15, color: '#FFFFFF' }}>Save now</Text>
+            <Text style={{ fontFamily: 'DMSans_700Bold', fontSize: 15, color: '#FFFFFF' }}>Save now</Text>
             <ArrowRight size={16} color="#FFFFFF" />
           </SpringPressable>
         </View>

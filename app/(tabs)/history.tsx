@@ -6,34 +6,25 @@ import { useCallback, useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
+import { AD_UNIT_IDS } from '@/lib/ads';
+import { BannerAd, BannerAdSize } from 'react-native-google-mobile-ads';
+import { useAdsStore } from '@/lib/stores/ads';
 import { SpringPressable } from '@/components/SpringPressable';
 import { formatAmount } from '@/lib/currency';
 import { useMoneyboxesStore } from '@/lib/stores/moneyboxes';
 import { useProfileStore } from '@/lib/stores/profile';
 import { useSessionStore } from '@/lib/stores/session';
+import { useAppTheme } from '@/lib/stores/theme';
 
 /* ── Chime palette ─────────────────────────────────────────────── */
 
-const C = {
-  heroTop: '#0B3D2E',
-  heroMid: '#145A42',
-  heroBot: '#1E7A5C',
-  accent: '#1DB954',
-  accentDark: '#166534',
-  pageBg: '#F5F7FA',
-  surface: '#FFFFFF',
-  textPrimary: '#0F1419',
-  textSecondary: '#6B7280',
-  textMuted: '#9CA3AF',
-  textFaint: '#D1D5DB',
-  border: '#F3F4F6',
-};
-
 export default function HistoryScreen() {
+  const C = useAppTheme();
   const router = useRouter();
   const { userId } = useSessionStore();
   const { moneyboxes, streaks, loadAll } = useMoneyboxesStore();
   const { profile } = useProfileStore();
+  const adsReady = useAdsStore((s) => s.ready);
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState<'completed' | 'abandoned'>('completed');
 
@@ -83,7 +74,7 @@ export default function HistoryScreen() {
           >
             <Text
               style={{
-                fontFamily: 'Inter_400Regular',
+                fontFamily: 'DMSans_400Regular',
                 fontSize: 15,
                 color: 'rgba(255,255,255,0.6)',
               }}
@@ -92,7 +83,7 @@ export default function HistoryScreen() {
             </Text>
             <Text
               style={{
-                fontFamily: 'Inter_700Bold',
+                fontFamily: 'DMSans_700Bold',
                 fontSize: 34,
                 color: '#FFFFFF',
                 marginTop: 4,
@@ -105,13 +96,13 @@ export default function HistoryScreen() {
             {completed.length > 0 && (
               <Text
                 style={{
-                  fontFamily: 'Inter_500Medium',
+                  fontFamily: 'DMSans_500Medium',
                   fontSize: 14,
                   color: '#4ADE80',
                   marginTop: 8,
                 }}
               >
-                {formatAmount(totalCompleted, profile?.defaultCurrency ?? 'INR')} saved in total
+                {formatAmount(totalCompleted, profile?.defaultCurrency ?? 'USD')} saved in total
               </Text>
             )}
           </Animated.View>
@@ -140,7 +131,7 @@ export default function HistoryScreen() {
               <View style={{ alignItems: 'center' }}>
                 <Text
                   style={{
-                    fontFamily: 'Inter_700Bold',
+                    fontFamily: 'DMSans_700Bold',
                     fontSize: 24,
                     color: C.textPrimary,
                   }}
@@ -149,7 +140,7 @@ export default function HistoryScreen() {
                 </Text>
                 <Text
                   style={{
-                    fontFamily: 'Inter_400Regular',
+                    fontFamily: 'DMSans_400Regular',
                     fontSize: 12,
                     color: C.textMuted,
                     marginTop: 2,
@@ -162,7 +153,7 @@ export default function HistoryScreen() {
               <View style={{ alignItems: 'center' }}>
                 <Text
                   style={{
-                    fontFamily: 'Inter_700Bold',
+                    fontFamily: 'DMSans_700Bold',
                     fontSize: 24,
                     color: C.textPrimary,
                   }}
@@ -171,7 +162,7 @@ export default function HistoryScreen() {
                 </Text>
                 <Text
                   style={{
-                    fontFamily: 'Inter_400Regular',
+                    fontFamily: 'DMSans_400Regular',
                     fontSize: 12,
                     color: C.textMuted,
                     marginTop: 2,
@@ -184,7 +175,7 @@ export default function HistoryScreen() {
               <View style={{ alignItems: 'center' }}>
                 <Text
                   style={{
-                    fontFamily: 'Inter_700Bold',
+                    fontFamily: 'DMSans_700Bold',
                     fontSize: 24,
                     color: C.textPrimary,
                   }}
@@ -193,7 +184,7 @@ export default function HistoryScreen() {
                 </Text>
                 <Text
                   style={{
-                    fontFamily: 'Inter_400Regular',
+                    fontFamily: 'DMSans_400Regular',
                     fontSize: 12,
                     color: C.textMuted,
                     marginTop: 2,
@@ -241,7 +232,7 @@ export default function HistoryScreen() {
               </View>
               <Text
                 style={{
-                  fontFamily: 'Inter_600SemiBold',
+                  fontFamily: 'DMSans_600SemiBold',
                   fontSize: 16,
                   color: C.textPrimary,
                 }}
@@ -250,7 +241,7 @@ export default function HistoryScreen() {
               </Text>
               <Text
                 style={{
-                  fontFamily: 'Inter_400Regular',
+                  fontFamily: 'DMSans_400Regular',
                   fontSize: 13,
                   color: C.textSecondary,
                   textAlign: 'center',
@@ -300,8 +291,10 @@ export default function HistoryScreen() {
                     }}
                   >
                     <Text
+                      allowFontScaling={false}
+                      numberOfLines={1}
                       style={{
-                        fontFamily: isActive ? 'Inter_600SemiBold' : 'Inter_500Medium',
+                        fontFamily: isActive ? 'DMSans_600SemiBold' : 'DMSans_500Medium',
                         fontSize: 14,
                         color: isActive ? C.textPrimary : C.textMuted,
                       }}
@@ -361,19 +354,24 @@ export default function HistoryScreen() {
                       >
                         <Trophy size={18} color={C.accent} />
                       </View>
-                      <View style={{ flex: 1 }}>
+                      <View style={{ flex: 1, minWidth: 0 }}>
                         <Text
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
                           style={{
-                            fontFamily: 'Inter_600SemiBold',
+                            fontFamily: 'DMSans_600SemiBold',
                             fontSize: 15,
                             color: C.textPrimary,
                           }}
                         >
+                          <Text>{box.icon || '💰'} </Text>
                           {box.name}
                         </Text>
                         <Text
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
                           style={{
-                            fontFamily: 'Inter_400Regular',
+                            fontFamily: 'DMSans_400Regular',
                             fontSize: 13,
                             color: C.textMuted,
                             marginTop: 2,
@@ -383,7 +381,7 @@ export default function HistoryScreen() {
                           {date ? ` · ${date}` : ''}
                         </Text>
                       </View>
-                      <ChevronRight size={16} color={C.textFaint} />
+                      <ChevronRight size={16} color={C.textFaint} style={{ flexShrink: 0 }} />
                     </SpringPressable>
                   );
                 })}
@@ -391,9 +389,21 @@ export default function HistoryScreen() {
             )}
 
             {tab === 'completed' && completed.length === 0 && (
-              <View style={{ alignItems: 'center', paddingVertical: 32 }}>
-                <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 14, color: C.textMuted }}>
+              <View style={{ alignItems: 'center', paddingVertical: 32, paddingHorizontal: 24 }}>
+                <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 14, color: C.textPrimary }}>
                   No completed vaults yet
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: 'DMSans_400Regular',
+                    fontSize: 13,
+                    color: C.textMuted,
+                    textAlign: 'center',
+                    marginTop: 6,
+                    lineHeight: 18,
+                  }}
+                >
+                  Finish your first vault and it will land here.
                 </Text>
               </View>
             )}
@@ -437,19 +447,24 @@ export default function HistoryScreen() {
                     >
                       <Text style={{ fontSize: 16 }}>📦</Text>
                     </View>
-                    <View style={{ flex: 1 }}>
+                    <View style={{ flex: 1, minWidth: 0 }}>
                       <Text
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
                         style={{
-                          fontFamily: 'Inter_500Medium',
+                          fontFamily: 'DMSans_500Medium',
                           fontSize: 15,
                           color: C.textPrimary,
                         }}
                       >
+                        <Text>{box.icon || '💰'} </Text>
                         {box.name}
                       </Text>
                       <Text
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
                         style={{
-                          fontFamily: 'Inter_400Regular',
+                          fontFamily: 'DMSans_400Regular',
                           fontSize: 13,
                           color: C.textMuted,
                           marginTop: 2,
@@ -458,20 +473,42 @@ export default function HistoryScreen() {
                         {formatAmount(box.goalAmount, box.currency)}
                       </Text>
                     </View>
-                    <ChevronRight size={16} color={C.textFaint} />
+                    <ChevronRight size={16} color={C.textFaint} style={{ flexShrink: 0 }} />
                   </SpringPressable>
                 ))}
               </View>
             )}
 
             {tab === 'abandoned' && abandoned.length === 0 && (
-              <View style={{ alignItems: 'center', paddingVertical: 32 }}>
-                <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 14, color: C.textMuted }}>
+              <View style={{ alignItems: 'center', paddingVertical: 32, paddingHorizontal: 24 }}>
+                <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 14, color: C.textPrimary }}>
                   No abandoned vaults
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: 'DMSans_400Regular',
+                    fontSize: 13,
+                    color: C.textMuted,
+                    textAlign: 'center',
+                    marginTop: 6,
+                    lineHeight: 18,
+                  }}
+                >
+                  Nice — you’ve stuck with every vault you started.
                 </Text>
               </View>
             )}
           </Animated.View>
+        )}
+
+        {/* AdMob banner */}
+        {adsReady && (
+          <View style={{ marginTop: 20, marginBottom: 10 }}>
+            <BannerAd
+              unitId={AD_UNIT_IDS.BANNER}
+              size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
+            />
+          </View>
         )}
       </ScrollView>
     </View>

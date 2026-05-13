@@ -18,6 +18,20 @@ export async function signUpWithEmail(email: string, password: string): Promise<
   if (!isValidEmail(email)) throw new Error('Please enter a valid email address.');
   if (password.length < 8) throw new Error('Password must be at least 8 characters.');
 
+  const { data: { session } } = await supabase.auth.getSession();
+  const isAnon = session?.user?.is_anonymous === true;
+
+  if (isAnon) {
+    const { error } = await supabase.auth.updateUser({ email, password });
+    if (error) {
+      if (error.message.toLowerCase().includes('already') || error.message.toLowerCase().includes('registered')) {
+        throw new Error('This email is already in use. Try logging in instead.');
+      }
+      throw new Error(error.message);
+    }
+    return;
+  }
+
   const { error } = await supabase.auth.signUp({ email, password });
   if (error) {
     if (error.message.includes('already registered') || error.message.includes('already been registered')) {
@@ -57,28 +71,15 @@ export async function resendConfirmation(email: string): Promise<void> {
 /* ── Delete Account ──────────────────────────────────────────────── */
 
 export async function deleteAccount(): Promise<void> {
-  // Delete all user data then sign out
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.user) throw new Error('Not signed in');
 
-  const userId = session.user.id;
+  // Calls the public.delete_user() Postgres function (SECURITY DEFINER)
+  // which deletes the auth user; cascading FKs on auth.users remove all
+  // owned rows (profiles, moneyboxes, cells, streaks, push_tokens).
+  const { error } = await supabase.rpc('delete_user');
+  if (error) throw new Error(error.message);
 
-  // Delete in order: cells → moneyboxes → push_tokens → streaks → profile
-  // Cascading deletes on auth.users will handle most of this,
-  // but we clean up explicitly for safety
-  await supabase.from('push_tokens').delete().eq('user_id', userId);
-  await supabase.from('cells').delete().in(
-    'moneybox_id',
-    (await supabase.from('moneyboxes').select('id').eq('user_id', userId)).data?.map((b) => b.id) ?? [],
-  );
-  await supabase.from('streaks').delete().in(
-    'moneybox_id',
-    (await supabase.from('moneyboxes').select('id').eq('user_id', userId)).data?.map((b) => b.id) ?? [],
-  );
-  await supabase.from('moneyboxes').delete().eq('user_id', userId);
-  await supabase.from('profiles').delete().eq('id', userId);
-
-  // Clear local storage
   await AsyncStorage.multiRemove([
     'stashbox_weekly_activity',
     'stashbox_last_daily_bonus',
@@ -105,6 +106,10 @@ export async function signOut(): Promise<void> {
     'stashbox_personality',
   ]);
 
+  // Sign out only. Do NOT immediately call signInAnonymously() here — it
+  // races with the explicit router.replace('/(auth)/login') in profile.tsx
+  // and the auth-guard in _layout.tsx, sometimes bouncing the user back to
+  // home before the new anon SIGNED_IN event reaches the listener. The
+  // anonymous-fallback for fresh launches is handled in session.ts init().
   await supabase.auth.signOut({ scope: 'local' });
-  await supabase.auth.signInAnonymously();
 }

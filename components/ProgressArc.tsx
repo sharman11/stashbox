@@ -28,7 +28,7 @@ export function ProgressArc({
   return (
     <View style={{ width: size, height: size / 2 + 8, alignItems: 'center', justifyContent: 'flex-end' }}>
       <Svg width={size} height={size / 2 + strokeWidth} style={{ overflow: 'visible' }}>
-        {/* Track — bottom half circle */}
+        {/* Track - bottom half circle */}
         <Circle
           cx={size / 2}
           cy={size / 2}
@@ -41,7 +41,7 @@ export function ProgressArc({
           rotation="180"
           origin={`${size / 2}, ${size / 2}`}
         />
-        {/* Progress — bottom half circle filled */}
+        {/* Progress - bottom half circle filled */}
         <Circle
           cx={size / 2}
           cy={size / 2}
@@ -59,7 +59,7 @@ export function ProgressArc({
       {label && (
         <Text style={{
           position: 'absolute', bottom: 0,
-          fontFamily: 'Inter_700Bold', fontSize: size * 0.2, color: textColor,
+          fontFamily: 'DMSans_700Bold', fontSize: size * 0.2, color: textColor,
         }}>
           {label}
         </Text>
