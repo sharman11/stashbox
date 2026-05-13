@@ -11,18 +11,21 @@ export const viewport: Viewport = {
 
 /**
  * Resolve the absolute origin for metadata (OG image, canonical URLs).
- * Priority:
- *   1. NEXT_PUBLIC_SITE_URL — set this in Vercel once your real domain is live.
- *   2. VERCEL_URL — auto-injected by Vercel on every deploy (preview + prod),
- *      points at the deployment's *.vercel.app hostname.
- *   3. localhost fallback for `next dev`.
  *
- * Without this, og:image and twitter:image meta tags resolve against a
- * hard-coded domain that may not exist yet, and validators report
- * "unreachable".
+ * Priority:
+ *   1. NEXT_PUBLIC_SITE_URL — set in Vercel once the real domain is live.
+ *   2. VERCEL_PROJECT_PRODUCTION_URL — the project's public production
+ *      alias (e.g. stashbox-six.vercel.app). Publicly accessible.
+ *   3. VERCEL_URL — the per-deployment hostname. AVOID for OG metadata:
+ *      on team accounts these URLs are gated behind Vercel SSO (returns
+ *      401 to external validators), so og:image becomes unreachable.
+ *   4. localhost fallback for `next dev`.
  */
 function siteUrl(): string {
   if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+  }
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
   return 'http://localhost:3000';
 }
