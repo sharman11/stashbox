@@ -35,22 +35,22 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: 'Stashbox · Save real cash, one cell at a time',
+  title: 'Stashbox · A daily habit for cash you save offline',
   description:
     'A daily habit tracker for cash you save offline. Jar, envelope, piggy bank, gullak, or any of 40+ stash spots. Pick a goal, fill a cell a day, hit your target.',
   metadataBase: new URL(siteUrl()),
   openGraph: {
-    title: 'Stashbox · Save real cash, one cell at a time',
+    title: 'Stashbox · A daily habit for cash you save offline',
     description:
-      'Turn the way you already save cash into a daily habit. Goal, grid, streak, done.',
+      'Pick a goal. Pick where the cash lives: jar, envelope, piggy bank, gullak, or any of 40+ stash spots. Fill one cell a day. That is the whole thing.',
     type: 'website',
     siteName: 'Stashbox',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Stashbox',
+    title: 'Stashbox · A daily habit for cash you save offline',
     description:
-      'A daily habit tracker for the cash you save offline. Goal, grid, streak, done.',
+      'Pick a goal. Pick where the cash lives: jar, envelope, piggy bank, gullak, or any of 40+ stash spots. Fill one cell a day. That is the whole thing.',
   },
 };
 
