@@ -13,13 +13,15 @@
     scroll-behavior: smooth;
     /* Lock horizontal scroll on every device — phone mocks, gradients,
        and dot patterns can otherwise spill outside the viewport on
-       320–360px Android screens. */
-    overflow-x: hidden;
+       320–360px Android screens. `clip` (not `hidden`) clips overflow
+       without establishing a scroll container, so `position: sticky`
+       descendants (the nav) keep working. */
+    overflow-x: clip;
   }
 
   body {
     @apply bg-paper text-ink font-sans antialiased;
-    overflow-x: hidden;
+    overflow-x: clip;
   }
 
   /* Section anchors compensate for sticky-nav offset and respect the
@@ -59,5 +61,27 @@
   }
   .legal strong {
     @apply text-ink font-semibold;
+  }
+}
+
+/* Landing splash — cheek-fill loading screen. Letters of the wordmark
+   fade up with a stagger; the footer fades in last. */
+@keyframes splash-letter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes splash-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }

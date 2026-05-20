@@ -48,8 +48,8 @@ function createAudioPool(): HTMLAudioElement[] {
   });
 }
 
-function formatINR(value: number): string {
-  return new Intl.NumberFormat('en-IN').format(value);
+function formatUSD(value: number): string {
+  return new Intl.NumberFormat('en-US').format(value);
 }
 
 interface PhoneMockProps {
@@ -165,45 +165,40 @@ export function PhoneMock({ theme, soundEnabled }: PhoneMockProps) {
         }}
       />
 
-      <div className="relative aspect-[9/19.5] rounded-[2.5rem] bg-[#0A1F18] p-2 shadow-2xl ring-1 ring-white/10">
-        <div className="absolute left-1/2 top-1.5 z-20 h-4 w-20 -translate-x-1/2 rounded-full bg-black" />
-
-        <div
-          className="relative h-full w-full overflow-hidden rounded-[2.1rem] p-4 pt-8 transition-[background] duration-500"
-          style={{
-            background: `linear-gradient(to bottom, ${theme.heroStart} 0%, ${theme.heroMid} 55%, ${theme.heroEnd} 100%)`,
-          }}
-        >
+      <div
+        className="relative w-full overflow-hidden rounded-3xl p-4 shadow-2xl ring-1 ring-white/10 transition-[background] duration-500"
+        style={{
+          background: `linear-gradient(to bottom, ${theme.heroStart} 0%, ${theme.heroMid} 55%, ${theme.heroEnd} 100%)`,
+        }}
+      >
           <div className="relative z-10">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <div className="grid h-7 w-7 place-items-center rounded-full bg-pink-200 text-sm ring-1 ring-white/20">
-                  🐷
+            <div
+              className="flex items-center justify-between gap-2"
+              aria-live="polite"
+            >
+              <div>
+                <div className="text-[9px] text-white/60">🇺🇸 USD</div>
+                <div className="mt-1 text-2xl font-semibold tracking-tight text-white tabular-nums transition-all duration-300">
+                  ${formatUSD(saved)}
                 </div>
-                <span className="text-[10px] text-white/85">Hello, Sharman</span>
+                <div className="mt-0.5 flex items-center gap-1.5 text-[10px]">
+                  <span
+                    className="tabular-nums"
+                    style={{ color: theme.accent }}
+                  >
+                    {percent}% saved
+                  </span>
+                  <span className="text-white/35">·</span>
+                  <span className="text-white/55 tabular-nums">
+                    of ${formatUSD(goal)}
+                  </span>
+                </div>
               </div>
-              <div
-                className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-medium text-white"
-                style={{ background: theme.accent }}
-              >
-                <span aria-hidden>+</span> Moneybox
-              </div>
-            </div>
-
-            <div className="mt-5" aria-live="polite">
-              <div className="text-[9px] text-white/60">🇮🇳 INR</div>
-              <div className="mt-1 text-2xl font-semibold tracking-tight text-white tabular-nums transition-all duration-300">
-                ₹{formatINR(saved)}
-              </div>
-              <div className="mt-0.5 flex items-center gap-1.5 text-[10px]">
-                <span className="tabular-nums" style={{ color: theme.accent }}>
-                  {percent}% saved
-                </span>
-                <span className="text-white/35">·</span>
-                <span className="text-white/55 tabular-nums">
-                  of ₹{formatINR(goal)}
-                </span>
-              </div>
+              <img
+                src="/mascot/hero-present.png"
+                alt="Stashbox squirrel mascot"
+                className="-my-2 h-20 w-20 shrink-0 object-contain drop-shadow-lg sm:h-24 sm:w-24"
+              />
             </div>
 
             <div className="mt-3 rounded-2xl bg-black/35 p-3 ring-1 ring-white/5 backdrop-blur-sm">
@@ -237,7 +232,7 @@ export function PhoneMock({ theme, soundEnabled }: PhoneMockProps) {
                       type="button"
                       onClick={() => toggleCell(i)}
                       aria-pressed={isFilled}
-                      aria-label={`Cell ${i + 1}, ₹${amount}, ${
+                      aria-label={`Cell ${i + 1}, $${amount}, ${
                         isFilled ? 'filled' : 'empty'
                       }`}
                       className="aspect-square rounded-[4px] transition-all duration-200 active:scale-90 hover:brightness-110"
@@ -268,22 +263,6 @@ export function PhoneMock({ theme, soundEnabled }: PhoneMockProps) {
                 </button>
               </div>
             </div>
-
-            <div className="mt-2.5 flex items-center gap-2 rounded-2xl bg-black/35 p-2.5 ring-1 ring-white/5 backdrop-blur-sm">
-              <div className="grid h-7 w-7 place-items-center rounded-full bg-white/10 text-xs">
-                ⚡
-              </div>
-              <div className="leading-tight">
-                <div className="text-[10px] font-semibold text-white">
-                  7-day streak
-                </div>
-                <div className="text-[9px] text-white/55">
-                  {count === TOTAL_CELLS
-                    ? 'Goal complete!'
-                    : 'Keep it going today'}
-                </div>
-              </div>
-            </div>
           </div>
 
           {celebrate && (
@@ -295,7 +274,6 @@ export function PhoneMock({ theme, soundEnabled }: PhoneMockProps) {
             </div>
           )}
         </div>
-      </div>
 
       <style>{`
         @keyframes celebrate {

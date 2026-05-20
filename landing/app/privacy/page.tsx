@@ -82,7 +82,7 @@ export default function PrivacyPage() {
       <p>
         Stashbox is not directed at children under 13. If you are a parent and
         believe your child has signed up, email{' '}
-        <a href="mailto:hello@stashbox.app">hello@stashbox.app</a> and we will
+        <a href="mailto:sharmancm11@gmail.com">sharmancm11@gmail.com</a> and we will
         delete the account.
       </p>
 
@@ -90,7 +90,7 @@ export default function PrivacyPage() {
       <p>
         You can export, edit, or delete your data at any time from{' '}
         <strong>Settings → Account</strong> inside the app, or by emailing{' '}
-        <a href="mailto:hello@stashbox.app">hello@stashbox.app</a>. Deletion is
+        <a href="mailto:sharmancm11@gmail.com">sharmancm11@gmail.com</a>. Deletion is
         permanent and typically completes within 30 days.
       </p>
 
@@ -104,7 +104,7 @@ export default function PrivacyPage() {
       <h2>9. Contact</h2>
       <p>
         Questions, requests, or concerns:{' '}
-        <a href="mailto:hello@stashbox.app">hello@stashbox.app</a>.
+        <a href="mailto:sharmancm11@gmail.com">sharmancm11@gmail.com</a>.
       </p>
     </LegalLayout>
   );

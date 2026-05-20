@@ -50,22 +50,12 @@ export const metadata: Metadata = {
     type: 'website',
     siteName: 'Stashbox',
     locale: 'en_US',
-    images: [
-      {
-        url: '/opengraph-image',
-        width: 1200,
-        height: 630,
-        alt: 'Stashbox · Save real cash, one cell at a time.',
-        type: 'image/png',
-      },
-    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Stashbox · A daily habit for cash you save offline',
     description:
       'Pick a goal. Pick where the cash lives: jar, envelope, piggy bank, gullak, or any of 40+ stash spots. Fill one cell a day. That is the whole thing.',
-    images: ['/opengraph-image'],
   },
   alternates: {
     canonical: siteUrl(),

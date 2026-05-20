@@ -1,19 +1,24 @@
+import { Mascot } from './Mascot';
+
 const STEPS = [
   {
     n: '01',
     title: 'Pick a goal',
+    pose: 'step-goal',
     body:
       'Diwali fund, emergency stash, wedding, festival, travel. Anything with a number on it. Tell Stashbox the total and the timeline.',
   },
   {
     n: '02',
     title: 'Pick a stash spot',
+    pose: 'step-spot',
     body:
       'Piggy bank, glass jar, envelope, matka, gullak, toilet tank, false-bottom can. 40+ options. The cash lives where you can see it.',
   },
   {
     n: '03',
     title: 'Fill a cell a day',
+    pose: 'step-fill',
     body:
       'Stashbox generates a randomised grid of daily amounts that sum to your goal. Drop the cash, tap the cell. The streak takes care of itself.',
   },
@@ -35,8 +40,13 @@ export function HowItWorks() {
           {STEPS.map((s) => (
             <article
               key={s.n}
-              className="rounded-2xl border border-black/5 bg-white p-6 sm:p-7 shadow-sm"
+              className="relative rounded-2xl border border-black/5 bg-white p-6 pt-8 shadow-sm sm:p-7 sm:pt-9"
             >
+              <Mascot
+                pose={s.pose}
+                alt=""
+                className="pointer-events-none absolute -top-10 right-4 w-20 drop-shadow-lg sm:w-24"
+              />
               <div className="text-xs font-mono text-accent">{s.n}</div>
               <h3 className="mt-3 text-lg sm:text-xl font-semibold">{s.title}</h3>
               <p className="mt-3 text-ink-soft leading-relaxed">{s.body}</p>

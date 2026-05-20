@@ -1,3 +1,5 @@
+import { Mascot } from './Mascot';
+
 const ITEMS = [
   {
     q: 'Is Stashbox a bank?',
@@ -37,12 +39,21 @@ export function FAQ() {
   return (
     <section id="faq" className="bg-white py-16 sm:py-24">
       <div className="mx-auto max-w-3xl px-5 sm:px-6">
-        <p className="text-xs font-medium uppercase tracking-[0.2em] text-accent">
-          Questions
-        </p>
-        <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight">
-          The things people actually want to know.
-        </h2>
+        <div className="flex items-start justify-between gap-6">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-[0.2em] text-accent">
+              Questions
+            </p>
+            <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight">
+              The things people actually want to know.
+            </h2>
+          </div>
+          <Mascot
+            pose="faq-think"
+            alt=""
+            className="pointer-events-none hidden w-24 shrink-0 drop-shadow-lg sm:block lg:w-28"
+          />
+        </div>
 
         <div className="mt-8 divide-y divide-black/5 rounded-2xl border border-black/5 bg-white shadow-sm">
           {ITEMS.map((it) => (

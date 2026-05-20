@@ -1,3 +1,5 @@
+import { Mascot } from './Mascot';
+
 const FEATURES = [
   {
     title: 'Streaks that survive a bad week',
@@ -35,12 +37,21 @@ export function Features() {
   return (
     <section id="features" className="bg-[#0B3D2E] py-16 sm:py-24">
       <div className="mx-auto max-w-6xl px-5 sm:px-6">
-        <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight text-white">
-          Built around the way you already save.
-        </h2>
-        <p className="mt-4 max-w-2xl text-base sm:text-lg text-white/70 leading-relaxed">
-          Not a bank. The habit that fills one.
-        </p>
+        <div className="flex items-start justify-between gap-6">
+          <div>
+            <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight text-white">
+              Built around the way you already save.
+            </h2>
+            <p className="mt-4 max-w-2xl text-base sm:text-lg text-white/70 leading-relaxed">
+              Not a bank. The habit that fills one.
+            </p>
+          </div>
+          <Mascot
+            pose="features-flex"
+            alt=""
+            className="pointer-events-none hidden w-28 shrink-0 drop-shadow-xl md:block lg:w-32"
+          />
+        </div>
 
         <div className="mt-12 grid gap-px overflow-hidden rounded-2xl bg-white/10 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map((f) => (

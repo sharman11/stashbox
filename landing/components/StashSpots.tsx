@@ -1,3 +1,5 @@
+import { Mascot } from './Mascot';
+
 const SPOTS = [
   { emoji: '🐷', label: 'Piggy bank' },
   { emoji: '🫙', label: 'Glass jar' },
@@ -38,6 +40,11 @@ export function StashSpots() {
               Naming the spot gives the cash a home you’ll actually go back to.
               That’s the whole game.
             </p>
+            <Mascot
+              pose="stash-sneaky"
+              alt=""
+              className="pointer-events-none mt-6 hidden w-28 drop-shadow-lg sm:block lg:w-32"
+            />
           </div>
 
           <div className="flex flex-wrap gap-2 sm:gap-2.5">

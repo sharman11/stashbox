@@ -37,7 +37,7 @@ cd landing
 npx vercel
 ```
 
-When prompted, point Vercel at the `landing/` directory (not the repo root). Set the production domain to `stashbox.app` (or whatever you registered).
+When prompted, point Vercel at the `landing/` directory (not the repo root). Set the production domain to whatever you registered.
 
 ## Wiring the waitlist form
 

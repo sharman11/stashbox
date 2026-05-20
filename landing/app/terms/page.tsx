@@ -14,7 +14,7 @@ export default function TermsPage() {
       <p>
         These terms apply when you use Stashbox. They’re short on purpose. If
         anything is unclear, write to{' '}
-        <a href="mailto:hello@stashbox.app">hello@stashbox.app</a> and we’ll
+        <a href="mailto:sharmancm11@gmail.com">sharmancm11@gmail.com</a> and we’ll
         explain.
       </p>
 
@@ -86,7 +86,7 @@ export default function TermsPage() {
 
       <h2>10. Contact</h2>
       <p>
-        Anything we missed: <a href="mailto:hello@stashbox.app">hello@stashbox.app</a>.
+        Anything we missed: <a href="mailto:sharmancm11@gmail.com">sharmancm11@gmail.com</a>.
       </p>
     </LegalLayout>
   );

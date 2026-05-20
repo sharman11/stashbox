@@ -1,3 +1,5 @@
+import { Mascot } from './Mascot';
+
 const PERSONAS = [
   {
     emoji: '🪔',
@@ -41,16 +43,25 @@ export function Personas() {
   return (
     <section id="who" className="bg-paper py-16 sm:py-24">
       <div className="mx-auto max-w-6xl px-5 sm:px-6">
-        <p className="text-xs font-medium uppercase tracking-[0.2em] text-accent">
-          Who it’s for
-        </p>
-        <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight">
-          If you’ve ever kept cash in a jar, this is for you.
-        </h2>
-        <p className="mt-4 max-w-2xl text-base sm:text-lg text-ink-soft leading-relaxed">
-          Stashbox doesn’t care how much you’re saving or what for. It cares
-          that you do it every day, and that you can see it grow.
-        </p>
+        <div className="flex items-start justify-between gap-6">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-[0.2em] text-accent">
+              Who it’s for
+            </p>
+            <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight">
+              If you’ve ever kept cash in a jar, this is for you.
+            </h2>
+            <p className="mt-4 max-w-2xl text-base sm:text-lg text-ink-soft leading-relaxed">
+              Stashbox doesn’t care how much you’re saving or what for. It
+              cares that you do it every day, and that you can see it grow.
+            </p>
+          </div>
+          <Mascot
+            pose="personas-welcome"
+            alt=""
+            className="pointer-events-none hidden w-28 shrink-0 drop-shadow-lg lg:block lg:w-32"
+          />
+        </div>
 
         <div className="mt-12 grid gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
           {PERSONAS.map((p) => (

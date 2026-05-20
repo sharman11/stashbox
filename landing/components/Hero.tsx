@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { HeroDecoration } from './HeroDecoration';
-import { Logo } from './Logo';
 import { PhoneMock } from './PhoneMock';
 import { THEMES, type ThemeId } from './themes';
 
@@ -59,32 +58,22 @@ export function Hero() {
 
   return (
     <section
-      className="relative overflow-hidden text-white transition-[background] duration-500"
+      className="relative flex flex-1 flex-col overflow-hidden text-white transition-[background] duration-500"
       style={{
         background: `linear-gradient(160deg, ${theme.heroStart} 0%, ${theme.heroMid} 50%, ${theme.heroEnd} 100%)`,
       }}
     >
       <HeroDecoration theme={theme} />
 
-      <div className="relative z-10 mx-auto max-w-6xl px-5 pt-5 pb-12 sm:px-6 sm:pt-7 sm:pb-16 lg:pb-20">
-        <header className="flex items-center justify-between gap-3">
-          <Logo className="text-white" />
-          <nav className="hidden md:flex items-center gap-7 text-sm text-white/80">
-            <a href="#how" className="hover:text-white transition">How it works</a>
-            <a href="#features" className="hover:text-white transition">Features</a>
-            <a href="#who" className="hover:text-white transition">Who it’s for</a>
-            <a href="#faq" className="hover:text-white transition">FAQ</a>
-          </nav>
-        </header>
-
-        <div className="mt-8 grid items-center gap-8 sm:mt-12 md:mt-14 md:grid-cols-[1.1fr_minmax(0,0.9fr)] md:gap-8 lg:gap-12">
+      <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col px-5 pb-6 pt-[4.5rem] sm:px-6 sm:pb-8 sm:pt-20">
+        <div className="my-auto grid items-center gap-6 md:grid-cols-[1.1fr_minmax(0,0.9fr)] md:gap-8 lg:gap-12">
           <div className="max-w-xl">
             <p className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-white/80 ring-1 ring-white/15">
               <span
                 className="h-1.5 w-1.5 rounded-full"
                 style={{ background: theme.accent }}
               />
-              Coming soon
+              Live on Play Store
             </p>
             <h1 className="text-[2rem] leading-[1.08] sm:text-[2.75rem] md:text-5xl lg:text-[3.25rem] lg:leading-[1.05] font-semibold tracking-tight">
               Save real cash,
@@ -97,29 +86,26 @@ export function Hero() {
               a day. That’s the whole thing.
             </p>
 
-            <div className="mt-6 flex flex-wrap items-center gap-3">
-              <a
-                href="#how"
-                className="inline-flex min-h-11 items-center gap-2 rounded-full px-6 py-3 text-sm font-medium text-white shadow-lg transition hover:brightness-110"
-                style={{
-                  background: theme.accent,
-                  boxShadow: `0 10px 25px -10px rgba(${theme.cellGlowRgb}, 0.55)`,
-                }}
-              >
-                See how it works
-                <span aria-hidden>→</span>
-              </a>
-              <a
-                href="#faq"
-                className="inline-flex min-h-11 items-center gap-2 rounded-full bg-white/5 px-5 py-3 text-sm text-white/80 ring-1 ring-white/15 hover:bg-white/10 transition"
-              >
-                Read the FAQ
-              </a>
-            </div>
-
             <div className="mt-6 flex flex-wrap items-center gap-2.5">
-              <StoreBadge label="Coming soon" sub="Google Play" />
-              <StoreBadge label="Coming soon" sub="App Store" />
+              <a
+                href="https://play.google.com/store/apps/details?id=com.stashbox.app&hl=en_IN"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Get Stashbox on Google Play"
+                className="inline-block transition hover:opacity-90"
+              >
+                <img
+                  src="/google-play-badge.png"
+                  alt="Get it on Google Play"
+                  className="h-[60px] w-auto"
+                />
+              </a>
+              <img
+                src="/app-store-badge.svg"
+                alt="Download on the App Store, coming soon"
+                aria-disabled="true"
+                className="h-[40px] w-auto cursor-not-allowed opacity-40 grayscale"
+              />
             </div>
           </div>
 
@@ -186,20 +172,6 @@ function DemoControls({
       >
         <span aria-hidden>{sound ? '🔊' : '🔇'}</span>
       </button>
-    </div>
-  );
-}
-
-function StoreBadge({ label, sub }: { label: string; sub: string }) {
-  return (
-    <div className="flex items-center gap-2 rounded-xl bg-black/30 px-3.5 py-2.5 ring-1 ring-white/10">
-      <span aria-hidden className="text-white/70">▶</span>
-      <div className="leading-tight">
-        <div className="text-[10px] uppercase tracking-wider text-white/50">
-          {label}
-        </div>
-        <div className="text-sm text-white/85">{sub}</div>
-      </div>
     </div>
   );
 }
