@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 import { CheekFillIcon } from './CheekFillIcon';
@@ -51,14 +52,14 @@ export function Nav() {
       ].join(' ')}
     >
       <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-5 sm:px-6">
-        <a
+        <Link
           href="/"
           className="flex items-center gap-2 font-semibold text-white"
           aria-label="Stashbox home"
         >
           <CheekFillIcon className="h-9 w-9" />
           <span className="text-[17px] tracking-tight">Stashbox</span>
-        </a>
+        </Link>
 
         <div className="flex items-center gap-5 sm:gap-7">
           <div className="hidden items-center gap-7 text-sm text-white/80 md:flex">
