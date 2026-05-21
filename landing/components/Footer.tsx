@@ -7,7 +7,7 @@ export function Footer() {
       <Mascot
         pose="footer-wave"
         alt=""
-        className="pointer-events-none absolute -bottom-2 right-5 hidden w-24 drop-shadow-xl lg:block lg:w-28"
+        className="pointer-events-none absolute -bottom-2 right-3 w-16 drop-shadow-xl sm:right-5 sm:w-24 lg:w-28"
       />
       <div className="mx-auto flex max-w-6xl flex-col gap-8 px-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div>

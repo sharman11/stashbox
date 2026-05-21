@@ -51,7 +51,7 @@ export function FAQ() {
           <Mascot
             pose="faq-think"
             alt=""
-            className="pointer-events-none hidden w-24 shrink-0 drop-shadow-lg sm:block lg:w-28"
+            className="pointer-events-none w-16 shrink-0 drop-shadow-lg sm:w-24 lg:w-28"
           />
         </div>
 

@@ -43,7 +43,7 @@ export function StashSpots() {
             <Mascot
               pose="stash-sneaky"
               alt=""
-              className="pointer-events-none mt-6 hidden w-28 drop-shadow-lg sm:block lg:w-32"
+              className="pointer-events-none mt-6 w-24 drop-shadow-lg sm:w-28 lg:w-32"
             />
           </div>
 

@@ -13,7 +13,7 @@ export function Stats() {
       <Mascot
         pose="stats-hoard"
         alt=""
-        className="pointer-events-none absolute -top-12 right-4 hidden w-24 drop-shadow-lg lg:right-8 lg:block"
+        className="pointer-events-none absolute -top-10 right-3 w-16 drop-shadow-lg sm:-top-12 sm:right-4 sm:w-20 lg:right-8 lg:w-24"
       />
       <div className="mx-auto grid max-w-6xl grid-cols-4 gap-x-2 px-5 sm:px-6">
         {STATS.map((s) => (

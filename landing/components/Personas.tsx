@@ -59,7 +59,7 @@ export function Personas() {
           <Mascot
             pose="personas-welcome"
             alt=""
-            className="pointer-events-none hidden w-28 shrink-0 drop-shadow-lg lg:block lg:w-32"
+            className="pointer-events-none w-20 shrink-0 drop-shadow-lg md:w-28 lg:w-32"
           />
         </div>
 

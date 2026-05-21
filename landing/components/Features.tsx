@@ -49,7 +49,7 @@ export function Features() {
           <Mascot
             pose="features-flex"
             alt=""
-            className="pointer-events-none hidden w-28 shrink-0 drop-shadow-xl md:block lg:w-32"
+            className="pointer-events-none w-20 shrink-0 drop-shadow-xl md:w-28 lg:w-32"
           />
         </div>
 
