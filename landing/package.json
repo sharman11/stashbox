@@ -10,6 +10,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@next/third-parties": "^16.2.6",
     "next": "15.1.11",
     "react": "19.0.0",
     "react-dom": "19.0.0"

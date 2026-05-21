@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { DM_Sans } from 'next/font/google';
+import { GoogleAnalytics } from '@next/third-parties/google';
 
 import './globals.css';
 
@@ -70,6 +71,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     // before React hydrates. Children still get full hydration checks.
     <html lang="en" className={dmSans.variable} suppressHydrationWarning>
       <body suppressHydrationWarning>{children}</body>
+      {process.env.NODE_ENV === 'production' ? (
+        <GoogleAnalytics gaId="G-9R69SVNME3" />
+      ) : null}
     </html>
   );
 }
