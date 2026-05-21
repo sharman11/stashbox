@@ -72,7 +72,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={dmSans.variable} suppressHydrationWarning>
       <body suppressHydrationWarning>{children}</body>
       {process.env.NODE_ENV === 'production' ? (
-        <GoogleAnalytics gaId="G-9R69SVNME3" />
+        <GoogleAnalytics gaId="G-NHN4915LT3" />
       ) : null}
     </html>
   );
