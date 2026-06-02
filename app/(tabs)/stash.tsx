@@ -28,6 +28,7 @@ import { useAppTheme } from '@/lib/stores/theme';
 import { AnimatedNumber } from '@/components/AnimatedNumber';
 import { DailyBonus } from '@/components/DailyBonus';
 import { FactCarousel } from '@/components/FactCarousel';
+import { GoalForecastCard } from '@/components/stash/GoalForecastCard';
 import { SpringPressable } from '@/components/SpringPressable';
 import { StreakSection } from '@/components/StreakSection';
 import { WelcomeWeekBanner } from '@/components/WelcomeWeekBanner';
@@ -689,6 +690,11 @@ export default function StashScreen() {
             freezesAvailable={profile?.streakFreezesAvailable ?? 0}
           />
         </Animated.View>
+
+        {/* ── Goal forecast (Stashbox+) ── */}
+        <View style={{ paddingHorizontal: 16, marginTop: 24 }}>
+          <GoalForecastCard />
+        </View>
 
         {/* ── Recent wins — preview of completed moneyboxes ──
          *  This is the merged-in slice of the old History tab. We show a
