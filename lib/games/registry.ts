@@ -13,10 +13,10 @@
 
 import type { ImageSourcePropType } from 'react-native';
 
-const COIN_MERGE_IMG: ImageSourcePropType = require('@/assets/coin-merge.png');
-const SNAKE_IMG: ImageSourcePropType = require('@/assets/Snake.png');
-const MEMORY_IMG: ImageSourcePropType = require('@/assets/memory-match.png');
-const WHACK_IMG: ImageSourcePropType = require('@/assets/Whack.png');
+const COIN_MERGE_IMG: ImageSourcePropType = require('@/assets/games/Merge.webp');
+const SNAKE_IMG: ImageSourcePropType = require('@/assets/games/Snake.webp');
+const MEMORY_IMG: ImageSourcePropType = require('@/assets/games/Memory.webp');
+const WHACK_IMG: ImageSourcePropType = require('@/assets/games/Whack.webp');
 
 export type GameId = 'coin-merge' | 'snake' | 'memory-match' | 'whack-a-coin';
 
@@ -65,10 +65,10 @@ export const GAMES: readonly GameMeta[] = [
     description: 'Slide to merge coins. Bigger notes, bigger score.',
     scoreLabel: 'Best',
     palette: {
-      bg: '#FEF7E1',
-      ring: 'rgba(245,158,11,0.18)',
-      accent: '#F59E0B',
-      accentDark: '#7C2D12',
+      bg: '#FDF3D7',
+      ring: 'rgba(239,174,28,0.20)',
+      accent: '#EFAE1C',
+      accentDark: '#8A5A06',
     },
   },
   {
@@ -81,10 +81,10 @@ export const GAMES: readonly GameMeta[] = [
     description: 'Eat coins, grow long, don’t bite yourself.',
     scoreLabel: 'Best',
     palette: {
-      bg: '#E5F8EE',
-      ring: 'rgba(34,197,94,0.18)',
-      accent: '#22C55E',
-      accentDark: '#0B6B2E',
+      bg: '#E5F5EA',
+      ring: 'rgba(61,168,95,0.20)',
+      accent: '#3DA85F',
+      accentDark: '#0C6B33',
     },
   },
   {
@@ -97,10 +97,10 @@ export const GAMES: readonly GameMeta[] = [
     description: 'Flip pairs. Clear the board in fewer moves.',
     scoreLabel: 'Fewest moves',
     palette: {
-      bg: '#EFE9FF',
-      ring: 'rgba(139,92,246,0.20)',
-      accent: '#8B5CF6',
-      accentDark: '#4C1D95',
+      bg: '#ECE6FA',
+      ring: 'rgba(138,111,210,0.22)',
+      accent: '#8A6FD2',
+      accentDark: '#4A2E94',
     },
   },
   {
@@ -113,10 +113,10 @@ export const GAMES: readonly GameMeta[] = [
     description: 'Sixty seconds. Whack every coin you can.',
     scoreLabel: 'Best',
     palette: {
-      bg: '#FFE7D8',
-      ring: 'rgba(249,115,22,0.20)',
-      accent: '#F97316',
-      accentDark: '#7C2D12',
+      bg: '#FDE5E1',
+      ring: 'rgba(237,86,69,0.22)',
+      accent: '#ED5645',
+      accentDark: '#8C2A1E',
     },
   },
 ];

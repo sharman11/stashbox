@@ -8,11 +8,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SpringPressable } from '@/components/SpringPressable';
 
 import { AD_UNIT_IDS } from '@/lib/ads';
-import { BannerAd, BannerAdSize } from 'react-native-google-mobile-ads';
+import { BannerAd, BannerAdSize } from '@/lib/ads-placeholder';
+import { getGame, type GameId } from '@/lib/games/registry';
 import { useAdsStore } from '@/lib/stores/ads';
 import { useAppTheme } from '@/lib/stores/theme';
 
 interface GameLayoutProps {
+  /** Which game this is — drives the per-game header color. */
+  gameId: GameId;
   /** Game name shown in the header. */
   title: string;
   /** Live score label (e.g. "Score" or "Time"). */
@@ -30,21 +33,29 @@ interface GameLayoutProps {
 /**
  * Shared chrome for every mini-game: back button, title, score badge, restart.
  * Body slot is unconstrained so each game renders its own board however it likes.
+ *
+ * The header is tinted with the game's own palette (from the registry) so the
+ * game screen matches its hub card and icon art instead of the app's green.
  */
-export function GameLayout({ title, scoreLabel, score, secondary, onRestart, children }: GameLayoutProps) {
+export function GameLayout({ gameId, title, scoreLabel, score, secondary, onRestart, children }: GameLayoutProps) {
   const C = useAppTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const adsReady = useAdsStore((s) => s.ready);
 
+  // Per-game colors. Falls back to the app theme if the id is unknown.
+  const palette = getGame(gameId)?.palette;
+  const headerBg = palette?.accentDark ?? C.heroTop;
+  const restartBg = palette?.accent ?? C.accent;
+
   return (
     <View style={{ flex: 1, backgroundColor: C.pageBg }}>
       <StatusBar style="light" />
 
-      {/* Hero header */}
+      {/* Hero header - tinted with this game's own color */}
       <View
         style={{
-          backgroundColor: C.heroTop,
+          backgroundColor: headerBg,
           paddingTop: insets.top + 12,
           paddingHorizontal: 16,
           paddingBottom: 18,
@@ -98,7 +109,7 @@ export function GameLayout({ title, scoreLabel, score, secondary, onRestart, chi
               width: 40,
               height: 40,
               borderRadius: 20,
-              backgroundColor: C.accent,
+              backgroundColor: restartBg,
               alignItems: 'center',
               justifyContent: 'center',
             }}

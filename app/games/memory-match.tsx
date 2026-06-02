@@ -18,12 +18,15 @@ import { useBadgesStore } from '@/lib/badges/store';
 import { useScoresStore } from '@/lib/games/scores';
 import { usePlayedStore } from '@/lib/games/played';
 import { useMoneyboxesStore } from '@/lib/stores/moneyboxes';
+import { getGame } from '@/lib/games/registry';
 import { useAppTheme } from '@/lib/stores/theme';
 
-// Card-back palette stays brand-green in both modes - the cards read as
-// "stashbox tokens" regardless of app theme.
-const CARD_BACK = '#0B3D2E';
-const CARD_BACK_EDGE = '#16953F';
+// Per-game palette from the registry — cards match the game's icon art.
+const PALETTE = getGame('memory-match')!.palette;
+
+// Card-back palette tinted with the game's own color.
+const CARD_BACK = PALETTE.accentDark;
+const CARD_BACK_EDGE = PALETTE.accent;
 
 /** 8 currency / saving themed icons → 16 cards (8 pairs). */
 const CARD_ICONS = ['💰', '💵', '💎', '🪙', '🏦', '✈️', '🎁', '🐷'] as const;
@@ -203,6 +206,7 @@ export default function MemoryMatchScreen() {
 
   return (
     <GameLayout
+      gameId="memory-match"
       title="Memory Match"
       scoreLabel="Moves"
       score={moves}
@@ -396,7 +400,7 @@ function CardView({ icon, showFace, matched, onPress }: CardViewProps) {
         // Fixed border on every card - accent when matched, transparent
         // otherwise - so matching never shifts the card's content area.
         borderWidth: 2,
-        borderColor: matched ? C.accent : 'transparent',
+        borderColor: matched ? PALETTE.accent : 'transparent',
         overflow: 'hidden',
         backgroundColor: 'transparent',
         shadowColor: 'rgba(0,0,0,0.12)',
@@ -435,7 +439,7 @@ function CardView({ icon, showFace, matched, onPress }: CardViewProps) {
             justifyContent: 'center',
           }}
         >
-          <Coins size={18} color={C.accent} />
+          <Coins size={18} color={PALETTE.accent} />
         </View>
       </Animated.View>
 
@@ -448,7 +452,7 @@ function CardView({ icon, showFace, matched, onPress }: CardViewProps) {
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: matched ? C.accentLight : C.surface,
+            backgroundColor: matched ? PALETTE.bg : C.surface,
             borderRadius: 12,
             alignItems: 'center',
             justifyContent: 'center',

@@ -21,14 +21,18 @@ import { useScoresStore } from '@/lib/games/scores';
 import { usePlayedStore } from '@/lib/games/played';
 import { useMoneyboxesStore } from '@/lib/stores/moneyboxes';
 import { useProfileStore } from '@/lib/stores/profile';
+import { getGame } from '@/lib/games/registry';
 import { useAppTheme } from '@/lib/stores/theme';
 
-// Whack-a-coin board palette is intentionally fixed (carnival vibe). The
-// app theme drives only chrome (hint text, game-over modal, restart CTA).
+// Per-game palette from the registry — board matches the game's icon art.
+const PALETTE = getGame('whack-a-coin')!.palette;
+
+// Whack-a-coin board — tinted with the game's coral identity for a carnival
+// vibe. The gold coins pop hard against the coral surface.
 const BOARD = {
-  bg: '#16953F',
-  hole: '#0B3D2E',
-  holeRim: '#22C55E',
+  bg: PALETTE.accent,
+  hole: PALETTE.accentDark,
+  holeRim: '#F4897A',
   coin: '#FBBF24',
   coinRim: '#D97706',
   coinDark: '#7C2D12',
@@ -281,6 +285,7 @@ export default function WhackACoinScreen() {
 
   return (
     <GameLayout
+      gameId="whack-a-coin"
       title="Whack-a-Coin"
       scoreLabel="Score"
       score={score}
@@ -535,7 +540,6 @@ function ScorePulse({ value, pulseKey }: { value: number; pulseKey: number }) {
 
 /** "+₹N" text that floats up and fades. Remounts on every whack via key. */
 function FloatingGain({ amount, symbol }: { amount: number; symbol: string }) {
-  const C = useAppTheme();
   const offset = useSharedValue(0);
   const opacity = useSharedValue(0);
 
@@ -559,7 +563,7 @@ function FloatingGain({ amount, symbol }: { amount: number; symbol: string }) {
         {
           fontFamily: 'DMSans_700Bold',
           fontSize: 16,
-          color: C.accent,
+          color: PALETTE.accentDark,
           letterSpacing: -0.2,
         },
         style,

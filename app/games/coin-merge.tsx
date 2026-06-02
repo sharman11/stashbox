@@ -17,17 +17,24 @@ import { GameLayout } from '@/components/games/GameLayout';
 import { CURRENCIES, getNotes } from '@/lib/currency';
 import type { CurrencyCode } from '@/lib/currency';
 import { useBadgesStore } from '@/lib/badges/store';
+import { getGame } from '@/lib/games/registry';
 import { useScoresStore } from '@/lib/games/scores';
 import { usePlayedStore } from '@/lib/games/played';
 import { useMoneyboxesStore } from '@/lib/stores/moneyboxes';
 import { useProfileStore } from '@/lib/stores/profile';
 import { useAppTheme } from '@/lib/stores/theme';
 
-// Coin-merge board palette stays brand-green in both modes - the tiles
-// (per-currency colors via tileStyle) read the same against the dark board.
+// Per-game palette from the registry — board + accents match the game's
+// icon art and hub card instead of the app's green.
+const PALETTE = getGame('coin-merge')!.palette;
+
+// Coin-merge board — deep game color. The gold-to-ember tile ramp reads
+// strongly against it.
 const BOARD = {
-  bg: '#0B3D2E',
-  cellEmpty: 'rgba(255,255,255,0.06)',
+  bg: PALETTE.accentDark,
+  // Empty cells lifted to 10% white so the grid is clearly perceivable
+  // against the deep board (was 6%, too faint).
+  cellEmpty: 'rgba(255,255,255,0.10)',
 };
 
 const SIZE = 4;
@@ -175,8 +182,36 @@ function highestTile(board: Board): number {
   return max;
 }
 
-/** Color tier for a tile - palette indexed by ladder position. */
-function tileStyle(value: number, ladder: readonly number[]): { bg: string; fg: string; size: number } {
+/**
+ * Tile tiers - a coherent gold → amber → ember → deep ramp that reads as
+ * "coins climbing in value", tied to the game's amber identity.
+ *
+ * Accessibility: every fg/bg pair clears the WCAG AA contrast bar for large
+ * bold text (>= 3:1) - most exceed 4.5:1. Text color flips from dark to
+ * white only once the background is genuinely dark enough to carry it, so
+ * no tier has the old white-on-light-green legibility failure. Each tier
+ * also has a distinct lightness step, so tiles stay distinguishable in
+ * grayscale / for color-blind players - and the value number itself is the
+ * primary, non-color cue.
+ */
+const TILE_TIERS: readonly { bg: string; fg: string; border: string }[] = [
+  { bg: '#FFF1CE', fg: '#6B4E12', border: '#E9CE8E' },
+  { bg: '#FBDE93', fg: '#6B4E12', border: '#E0BE63' },
+  { bg: '#F6C44E', fg: '#5A3D08', border: '#D9A52F' },
+  { bg: '#EFA52E', fg: '#4A2E05', border: '#CE8616' },
+  { bg: '#E07F1C', fg: '#2A1A02', border: '#B8640F' },
+  { bg: '#CE5A24', fg: '#FFFFFF', border: '#A8431A' },
+  { bg: '#B23B30', fg: '#FFFFFF', border: '#8E2A22' },
+  { bg: '#8E2D52', fg: '#FFFFFF', border: '#6E2040' },
+  { bg: '#5E3A86', fg: '#FFFFFF', border: '#472B66' },
+  { bg: '#2A2336', fg: '#F6C44E', border: '#171220' },
+];
+
+/** Visual style for a tile - palette tier indexed by ladder position. */
+function tileStyle(
+  value: number,
+  ladder: readonly number[],
+): { bg: string; fg: string; border: string; size: number } {
   let idx = ladder.indexOf(value);
   if (idx < 0) {
     // Past-ladder doubling - keep climbing the palette by inferring tier.
@@ -187,22 +222,10 @@ function tileStyle(value: number, ladder: readonly number[]): { bg: string; fg: 
       idx++;
     }
   }
-  const palette = [
-    { bg: '#E6F4EA', fg: '#166534' },
-    { bg: '#A7F3D0', fg: '#065F46' },
-    { bg: '#34D399', fg: '#FFFFFF' },
-    { bg: '#10B981', fg: '#FFFFFF' },
-    { bg: '#FBBF24', fg: '#7C2D12' },
-    { bg: '#F59E0B', fg: '#FFFFFF' },
-    { bg: '#EF4444', fg: '#FFFFFF' },
-    { bg: '#EC4899', fg: '#FFFFFF' },
-    { bg: '#7C3AED', fg: '#FFFFFF' },
-    { bg: '#1F2937', fg: '#FBBF24' },
-  ];
-  const p = palette[Math.min(Math.max(0, idx), palette.length - 1)];
+  const p = TILE_TIERS[Math.min(Math.max(0, idx), TILE_TIERS.length - 1)];
   const digits = String(value).length;
   const size = digits <= 2 ? 24 : digits <= 3 ? 20 : digits <= 4 ? 17 : 14;
-  return { bg: p.bg, fg: p.fg, size };
+  return { bg: p.bg, fg: p.fg, border: p.border, size };
 }
 
 export default function CoinMergeScreen() {
@@ -405,6 +428,7 @@ export default function CoinMergeScreen() {
 
   return (
     <GameLayout
+      gameId="coin-merge"
       title="Coin Merge"
       scoreLabel="Score"
       score={score}
@@ -590,12 +614,19 @@ function Tile({ value, ladder, symbol, merged, moveSeq }: TileProps) {
 
   return (
     <Animated.View
+      accessible
+      accessibilityRole="text"
+      accessibilityLabel={`Coin tile ${symbol}${value}`}
       style={[
         {
           width: '100%',
           height: '100%',
           backgroundColor: style.bg,
           borderRadius: 12,
+          // Minted-coin edge: a slightly darker ring gives the flat tile
+          // depth and a second, lightness-based cue beyond fill color.
+          borderWidth: 2,
+          borderColor: style.border,
           alignItems: 'center',
           justifyContent: 'center',
         },
@@ -659,7 +690,6 @@ function ScorePulse({ value, pulseKey }: { value: number; pulseKey: number }) {
 
 /** "+N" text that floats up and fades. Remounts on every merge via key. */
 function FloatingGain({ amount }: { amount: number }) {
-  const C = useAppTheme();
   const offset = useSharedValue(0);
   const opacity = useSharedValue(0);
 
@@ -683,7 +713,7 @@ function FloatingGain({ amount }: { amount: number }) {
         {
           fontFamily: 'DMSans_700Bold',
           fontSize: 16,
-          color: C.accent,
+          color: PALETTE.accent,
           letterSpacing: -0.2,
         },
         style,

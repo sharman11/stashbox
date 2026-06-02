@@ -13,16 +13,20 @@ import { useScoresStore } from '@/lib/games/scores';
 import { usePlayedStore } from '@/lib/games/played';
 import { useMoneyboxesStore } from '@/lib/stores/moneyboxes';
 import { useProfileStore } from '@/lib/stores/profile';
+import { getGame } from '@/lib/games/registry';
 import { useAppTheme } from '@/lib/stores/theme';
 
-// Snake board palette - intentionally dark green in both modes; the snake
-// itself reads against it the same way regardless of app theme.
+// Per-game palette from the registry — board matches the game's icon art.
+const PALETTE = getGame('snake')!.palette;
+
+// Snake board palette - tinted with the game's own green. The gold snake
+// head reads strongly against the deep board.
 const BOARD = {
-  bg: '#0B3D2E',
+  bg: PALETTE.accentDark,
   cellEmpty: 'rgba(255,255,255,0.04)',
   snakeHead: '#FBBF24',
-  snakeBody: '#1DB954',
-  snakeHeadDark: '#166534',
+  snakeBody: PALETTE.accent,
+  snakeHeadDark: PALETTE.accentDark,
   food: '#FFFFFF',
 };
 
@@ -310,6 +314,7 @@ export default function SnakeScreen() {
 
   return (
     <GameLayout
+      gameId="snake"
       title="Snake"
       scoreLabel="Score"
       score={score}
