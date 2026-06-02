@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Sparkles, TrendingDown } from 'lucide-react-native';
+import { Lock, Sparkles, TrendingDown } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
@@ -8,6 +8,7 @@ import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { SpringPressable } from '@/components/SpringPressable';
 import { formatCents, formatDuration, formatApr } from '@/lib/loans/math';
 import { applyExtra, buildDebtFreeSummary, formatMonthYear } from '@/lib/loans/payoff-summary';
+import { useEntitlement } from '@/lib/stores/entitlement';
 import { useLoansStore } from '@/lib/stores/loans';
 
 const TEXT = '#F2FBF7';
@@ -29,6 +30,7 @@ const EXTRA_OPTIONS = [25, 50, 100, 250] as const;
 export function DebtFreeCard() {
   const router = useRouter();
   const loans = useLoansStore((s) => s.loans);
+  const isPro = useEntitlement();
 
   const summary = useMemo(() => buildDebtFreeSummary(loans), [loans]);
   const [extraDollars, setExtraDollars] = useState(0);
@@ -90,8 +92,35 @@ export function DebtFreeCard() {
             </View>
           )}
 
-          {/* What-if extra payment */}
-          {!summary.stalled && summary.targetLoan && (
+          {/* What-if extra payment — Stashbox+ gated */}
+          {!summary.stalled && summary.targetLoan && !isPro && (
+            <SpringPressable
+              onPress={() => router.push('/paywall' as never)}
+              haptic
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 10,
+                backgroundColor: 'rgba(125,243,194,0.10)',
+                borderRadius: 14,
+                borderWidth: 1,
+                borderColor: 'rgba(125,243,194,0.22)',
+                padding: 14,
+              }}
+            >
+              <Lock size={16} color={MINT} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: 'DMSans_700Bold', fontSize: 13, color: TEXT }}>
+                  Unlock the payoff optimizer
+                </Text>
+                <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 11, color: DIM, marginTop: 1 }}>
+                  See how paying extra cuts months and interest — Stashbox+
+                </Text>
+              </View>
+            </SpringPressable>
+          )}
+
+          {!summary.stalled && summary.targetLoan && isPro && (
             <View style={{ gap: 10 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Sparkles size={12} color={MINT} />

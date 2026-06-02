@@ -20,6 +20,7 @@ import '../global.css';
 import { BadgeCelebration } from '@/components/BadgeCelebration';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { SplashAnimation } from '@/components/SplashAnimation';
+import { initPurchases } from '@/lib/iap/purchases';
 import { registerForPushNotifications, setupNotificationListener } from '@/lib/push';
 import { useAdsStore } from '@/lib/stores/ads';
 import { useAppReadyStore } from '@/lib/stores/app-ready';
@@ -106,6 +107,9 @@ function useBootstrap() {
       loadAvatar();
       registerForPushNotifications(userId);
       setupNotificationListener();
+      // Configure RevenueCat with the (stable) Supabase user id so Stashbox+
+      // entitlements follow the account across anon→permanent conversion.
+      initPurchases(userId);
     }
   }, [userId, load, loadAvatar]);
 
@@ -306,6 +310,7 @@ export default function RootLayout() {
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="paywall" options={{ presentation: 'modal' }} />
           <Stack.Screen name="create" options={{ presentation: 'modal' }} />
           <Stack.Screen name="box/[id]" />
           <Stack.Screen name="loans/create" options={{ presentation: 'modal' }} />
