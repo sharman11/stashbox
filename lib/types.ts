@@ -107,3 +107,114 @@ export interface Streak {
   bestDays: number;
   lastFilledDate: string | null;
 }
+
+/* ── Student loan tracker ──────────────────────────────────────────
+ *  Money stored in cents (bigint) to avoid float drift across the
+ *  many small multiplications in amortization math. APR stored as
+ *  basis points (650 = 6.50%). The display layer is responsible for
+ *  dividing back out — never do arithmetic on the display values.
+ */
+
+export type LoanType =
+  | 'federal_subsidized'
+  | 'federal_unsubsidized'
+  | 'federal_plus'
+  | 'perkins'
+  | 'private'
+  | 'refinanced';
+
+export type LoanStatus = 'active' | 'paid_off' | 'in_deferment';
+
+export type RepaymentPlan =
+  | 'standard'
+  | 'graduated'
+  | 'extended'
+  | 'idr'
+  | 'pslf'
+  | 'other';
+
+export type AprType = 'fixed' | 'variable';
+
+export interface StudentLoan {
+  id: string;
+  userId: string;
+  nickname: string;
+  loanType: LoanType;
+  servicer: string | null;
+  originalPrincipalCents: number;
+  currentBalanceCents: number;
+  aprBps: number;
+  aprType: AprType;
+  termMonthsRemaining: number;
+  monthlyPaymentCents: number;
+  dueDayOfMonth: number;
+  autopayOn: boolean;
+  repaymentPlan: RepaymentPlan;
+  reminderEnabled: boolean;
+  status: LoanStatus;
+  createdAt: string;
+  updatedAt: string;
+  paidOffAt: string | null;
+}
+
+export interface LoanPayment {
+  id: string;
+  loanId: string;
+  /** YYYY-MM-DD */
+  paymentDate: string;
+  amountCents: number;
+  principalCents: number;
+  interestCents: number;
+  isExtra: boolean;
+  sourceMoneyboxId: string | null;
+  note: string | null;
+  createdAt: string;
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+ * Expense tracker
+ * ──────────────────────────────────────────────────────────────────── */
+
+export type TransactionType = 'income' | 'expense';
+
+export interface ExpenseCategory {
+  id: string;
+  userId: string;
+  name: string;
+  emoji: string;
+  /** 7-char hex like '#10B981'. */
+  color: string;
+  type: TransactionType;
+  isDefault: boolean;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExpenseTransaction {
+  id: string;
+  userId: string;
+  categoryId: string | null;
+  /** Positive integer. Direction encoded in `type`, not the sign. */
+  amountCents: number;
+  currency: CurrencyCode;
+  type: TransactionType;
+  /** YYYY-MM-DD */
+  occurredOn: string;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExpenseBudget {
+  id: string;
+  userId: string;
+  /** Null = overall monthly cap across all categories. */
+  categoryId: string | null;
+  /** YYYY-MM-01 anchor */
+  periodMonth: string;
+  limitCents: number;
+  currency: CurrencyCode;
+  createdAt: string;
+  updatedAt: string;
+}
