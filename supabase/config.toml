@@ -1,0 +1,21 @@
+# Supabase project configuration.
+#
+# Edge functions: require a valid Supabase JWT on every request. The daily
+# cron invokes these with the service-role key as the bearer (which always
+# passes), so legitimate invocation is unaffected — but an unauthenticated
+# request is rejected, closing the "anyone can trigger push notifications /
+# run up the bill" abuse vector.
+#
+# Note: this is a minimal config holding only the function gates. It is NOT a
+# full `supabase init` config — if you later run `supabase config push`, review
+# the diff first so CLI defaults for [auth]/[api] don't overwrite your remote
+# dashboard settings. Plain `supabase functions deploy` only reads [functions.*]
+# and is safe.
+
+project_id = "jbwzjgpwaepqocivycfq"
+
+[functions.send-reminders]
+verify_jwt = true
+
+[functions.send-weekly-digest]
+verify_jwt = true

@@ -126,8 +126,10 @@ export const useSessionStore = create<SessionState>((set) => ({
 
       const { useMoneyboxesStore } = await import('./moneyboxes');
       const { useAvatarStore } = await import('./avatar');
+      const { useLoansStore } = await import('./loans');
       useMoneyboxesStore.getState().reset();
       useAvatarStore.getState().reset();
+      useLoansStore.getState().reset();
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Sign out failed';
       set({ error: message });
