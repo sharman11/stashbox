@@ -10,7 +10,7 @@
  * Loans are USD-scoped in the MVP (see math.ts / formatCents), so no FX here.
  */
 
-import type { StudentLoan } from '../types';
+import type { LoanPayment, StudentLoan } from '../types';
 import { addMonths, projectFromLoan, todayYmd } from './math';
 
 const BPS_DIVISOR = 10_000;
@@ -132,6 +132,53 @@ export function applyExtra(
     monthsShaved: Math.max(0, summary.baselineMonths - newMaxMonths),
     interestSavedCents: Math.max(0, summary.baselineInterestCents - newInterestCents),
   };
+}
+
+export interface InterestAvoided {
+  /** Estimated future interest avoided by extra principal paid to date. */
+  avoidedCents: number;
+  /** Total extra principal logged across all loans. */
+  extraPaidCents: number;
+}
+
+/**
+ * Proof-of-value: how much interest the user has avoided by paying extra
+ * principal. For each loan we compare projected remaining interest against a
+ * counterfactual where the extra principal already paid were still on the
+ * balance. The gap is interest those extra payments will save. Honest estimate.
+ */
+export function interestAvoidedSoFar(
+  loans: readonly StudentLoan[],
+  paymentsByLoan: Record<string, readonly LoanPayment[]>,
+): InterestAvoided {
+  let avoidedCents = 0;
+  let extraPaidCents = 0;
+
+  for (const loan of loans) {
+    const payments = paymentsByLoan[loan.id] ?? [];
+    const extraPrincipal = payments
+      .filter((p) => p.isExtra)
+      .reduce((s, p) => s + p.principalCents, 0);
+    if (extraPrincipal <= 0) continue;
+    extraPaidCents += extraPrincipal;
+
+    const base = {
+      currentBalanceCents: loan.currentBalanceCents,
+      aprBps: loan.aprBps,
+      monthlyPaymentCents: loan.monthlyPaymentCents,
+    };
+    const current = projectFromLoan(base, 0);
+    const counterfactual = projectFromLoan(
+      { ...base, currentBalanceCents: loan.currentBalanceCents + extraPrincipal },
+      0,
+    );
+    // If the counterfactual can't pay off (payment <= interest), the estimate
+    // is unreliable — skip rather than report a garbage number.
+    if (counterfactual.months >= 600) continue;
+    avoidedCents += Math.max(0, counterfactual.totalInterestCents - current.totalInterestCents);
+  }
+
+  return { avoidedCents, extraPaidCents };
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

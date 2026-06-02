@@ -9,6 +9,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { PayoffPlanCard } from '@/components/loans/PayoffPlanCard';
 import { SpringPressable } from '@/components/SpringPressable';
 import { formatApr, formatCents, formatDuration, projectFromLoan } from '@/lib/loans/math';
+import { interestAvoidedSoFar } from '@/lib/loans/payoff-summary';
 import { LOAN_TYPES } from '@/lib/loans/types-meta';
 import { useLoansStore } from '@/lib/stores/loans';
 import { useSessionStore } from '@/lib/stores/session';
@@ -20,11 +21,22 @@ export default function LoansScreen() {
   const router = useRouter();
   const { userId } = useSessionStore();
   const { loans, loadAll, loading } = useLoansStore();
+  const loadPayments = useLoansStore((s) => s.loadPayments);
+  const paymentsByLoan = useLoansStore((s) => s.paymentsByLoan);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (userId) loadAll(userId);
   }, [userId, loadAll]);
+
+  // Load payment ledgers so we can show "interest avoided so far".
+  useEffect(() => {
+    for (const l of loans) {
+      if (!paymentsByLoan[l.id]) loadPayments(l.id);
+    }
+  }, [loans, paymentsByLoan, loadPayments]);
+
+  const proof = useMemo(() => interestAvoidedSoFar(loans, paymentsByLoan), [loans, paymentsByLoan]);
 
   const onRefresh = useCallback(async () => {
     if (!userId) return;
@@ -122,6 +134,22 @@ export default function LoansScreen() {
                   {formatCents(totals.monthly)} / month across {activeLoans.length}{' '}
                   active loan{activeLoans.length === 1 ? '' : 's'}
                 </Text>
+                {proof.avoidedCents > 0 && (
+                  <View
+                    style={{
+                      alignSelf: 'flex-start',
+                      marginTop: 14,
+                      paddingHorizontal: 12,
+                      paddingVertical: 7,
+                      borderRadius: 999,
+                      backgroundColor: 'rgba(255,255,255,0.14)',
+                    }}
+                  >
+                    <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 13, color: '#FFFFFF' }}>
+                      🎉 {formatCents(proof.avoidedCents)} interest avoided so far
+                    </Text>
+                  </View>
+                )}
               </View>
             )}
           </Animated.View>

@@ -1,5 +1,5 @@
-import type { StudentLoan } from '../../types';
-import { applyExtra, buildDebtFreeSummary, formatMonthYear } from '../payoff-summary';
+import type { LoanPayment, StudentLoan } from '../../types';
+import { applyExtra, buildDebtFreeSummary, formatMonthYear, interestAvoidedSoFar } from '../payoff-summary';
 
 function makeLoan(over: Partial<StudentLoan>): StudentLoan {
   return {
@@ -85,6 +85,47 @@ describe('applyExtra', () => {
     const scenario = applyExtra(loans, summary, 20_000);
     expect(scenario.interestSavedCents).toBeGreaterThan(0);
     expect(scenario.monthsShaved).toBeGreaterThan(0);
+  });
+});
+
+function makePayment(over: Partial<LoanPayment>): LoanPayment {
+  return {
+    id: 'p1',
+    loanId: 'l1',
+    paymentDate: '2026-05-01',
+    amountCents: 10_000,
+    principalCents: 5_000,
+    interestCents: 5_000,
+    isExtra: false,
+    sourceMoneyboxId: null,
+    note: null,
+    createdAt: '2026-05-01',
+    ...over,
+  };
+}
+
+describe('interestAvoidedSoFar', () => {
+  it('is zero with no extra payments', () => {
+    const loan = makeLoan({ aprBps: 1_200 });
+    const r = interestAvoidedSoFar([loan], { l1: [makePayment({ isExtra: false, principalCents: 5_000 })] });
+    expect(r.extraPaidCents).toBe(0);
+    expect(r.avoidedCents).toBe(0);
+  });
+
+  it('counts extra principal and estimates interest avoided on an interest-bearing loan', () => {
+    const loan = makeLoan({ aprBps: 1_200, currentBalanceCents: 500_000, monthlyPaymentCents: 20_000 });
+    const r = interestAvoidedSoFar([loan], {
+      l1: [makePayment({ isExtra: true, principalCents: 50_000 })],
+    });
+    expect(r.extraPaidCents).toBe(50_000);
+    expect(r.avoidedCents).toBeGreaterThan(0);
+  });
+
+  it('avoids nothing on a 0% loan (no interest to save)', () => {
+    const loan = makeLoan({ aprBps: 0, currentBalanceCents: 500_000, monthlyPaymentCents: 20_000 });
+    const r = interestAvoidedSoFar([loan], { l1: [makePayment({ isExtra: true, principalCents: 50_000 })] });
+    expect(r.extraPaidCents).toBe(50_000);
+    expect(r.avoidedCents).toBe(0);
   });
 });
 
