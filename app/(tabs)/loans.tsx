@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
+import { PayoffPlanCard } from '@/components/loans/PayoffPlanCard';
 import { SpringPressable } from '@/components/SpringPressable';
 import { formatApr, formatCents, formatDuration, projectFromLoan } from '@/lib/loans/math';
 import { LOAN_TYPES } from '@/lib/loans/types-meta';
@@ -217,6 +218,13 @@ export default function LoansScreen() {
                 </Text>
               </View>
             </View>
+          </View>
+        )}
+
+        {/* Payoff plan (Stashbox+) */}
+        {activeLoans.length > 0 && (
+          <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
+            <PayoffPlanCard />
           </View>
         )}
 
