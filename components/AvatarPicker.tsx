@@ -17,7 +17,7 @@ import {
   AdEventType,
   RewardedAd,
   RewardedAdEventType,
-} from 'react-native-google-mobile-ads';
+} from '@/lib/ads-placeholder';
 import {
   CATEGORY_LABEL,
   describeRequirement,

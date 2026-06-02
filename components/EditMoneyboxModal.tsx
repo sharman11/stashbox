@@ -172,7 +172,7 @@ export function EditMoneyboxModal({ visible, moneybox, onCancel, onSave }: EditM
                 <TextInput
                   value={name}
                   onChangeText={(v) => setName(v.slice(0, NAME_MAX))}
-                  placeholder="Moneybox name"
+                  placeholder="Stashbox name"
                   placeholderTextColor={C.textFaint}
                   maxLength={NAME_MAX}
                   style={{

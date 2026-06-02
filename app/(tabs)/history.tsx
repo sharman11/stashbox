@@ -7,7 +7,7 @@ import { RefreshControl, ScrollView, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { AD_UNIT_IDS } from '@/lib/ads';
-import { BannerAd, BannerAdSize } from 'react-native-google-mobile-ads';
+import { BannerAd, BannerAdSize } from '@/lib/ads-placeholder';
 import { useAdsStore } from '@/lib/stores/ads';
 import { SpringPressable } from '@/components/SpringPressable';
 import { formatAmount } from '@/lib/currency';

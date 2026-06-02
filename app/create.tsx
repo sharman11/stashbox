@@ -39,7 +39,7 @@ import {
   AdEventType,
   RewardedAd,
   RewardedAdEventType,
-} from 'react-native-google-mobile-ads';
+} from '@/lib/ads-placeholder';
 import { computeLimits, canCreate, maxForCurrency, MAX_CURRENCIES } from '@/lib/moneybox-limits';
 import {
   CURRENCY_LIST,
@@ -297,7 +297,7 @@ export default function CreateScreen() {
     if (check.reason === 'MAX_CURRENCIES') {
       showAlert(
         'Max 3 currencies',
-        'You can use up to 3 different currencies. Abandon a moneybox to free up a currency slot.',
+        'You can use up to 3 different currencies. Abandon a stashbox to free up a currency slot.',
         undefined,
         '🚫',
       );
@@ -340,7 +340,7 @@ export default function CreateScreen() {
       if (check.reason === 'MAX_CURRENCIES') {
         showAlert(
           'Max 3 currencies',
-          'Pick a different currency - you already have moneyboxes in 3 currencies.',
+          'Pick a different currency - you already have stashboxes in 3 currencies.',
           [{ text: 'OK', onPress: () => resolve(false) }],
           '🚫',
         );
@@ -1248,7 +1248,7 @@ export default function CreateScreen() {
                     }}
                     numberOfLines={1}
                   >
-                    {name || 'Your moneybox'}
+                    {name || 'Your stashbox'}
                   </Text>
                   <Text
                     style={{
@@ -1273,7 +1273,7 @@ export default function CreateScreen() {
             <Pressable
               onPress={async () => {
                 if (!canNext0) {
-                  showAlert('Name required', 'Give your moneybox a name before continuing.', undefined, '✏️');
+                  showAlert('Name required', 'Give your stashbox a name before continuing.', undefined, '✏️');
                   return;
                 }
                 const unlocked = await ensureCurrencyUnlocked();
@@ -1315,7 +1315,7 @@ export default function CreateScreen() {
                 }
                 if (goal > maxGoal) {
                   showAlert(
-                    'Too big for one moneybox',
+                    'Too big for one stashbox',
                     `Stashbox tops out at ${formatAmount(maxGoal, currency)} per moneybox. Split larger goals across multiple boxes, or use a bank account.`,
                     undefined,
                     '🚫',
@@ -1399,7 +1399,7 @@ export default function CreateScreen() {
                   {saving
                     ? 'Creating...'
                     : currencyAllowed
-                      ? 'Create moneybox'
+                      ? 'Create stashbox'
                       : 'Limit reached for this currency'}
                 </Text>
               </Pressable>

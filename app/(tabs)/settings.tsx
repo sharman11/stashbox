@@ -9,15 +9,15 @@ import {
   ChevronRight,
   ChevronUp,
   Coins,
-  Download,
   Moon,
   Share2,
   Smartphone,
+  Sparkles,
   Star,
   Sun,
-  Upload,
   Volume2,
   Vibrate,
+  Wallpaper,
 } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
@@ -36,13 +36,13 @@ import { MultiCurrencyPicker } from '@/components/MultiCurrencyPicker';
 import { SpringPressable } from '@/components/SpringPressable';
 
 import { AD_UNIT_IDS } from '@/lib/ads';
-import { BannerAd, BannerAdSize } from 'react-native-google-mobile-ads';
-import { exportBackup, importBackup } from '@/lib/backup';
+import { BannerAd, BannerAdSize } from '@/lib/ads-placeholder';
 import { CURRENCIES } from '@/lib/currency';
 import type { CurrencyCode } from '@/lib/currency';
 import { requestAndRegisterNotifications, unregisterNotifications } from '@/lib/push';
 import { useAdsStore } from '@/lib/stores/ads';
 import { useMoneyboxesStore } from '@/lib/stores/moneyboxes';
+import { usePersonalizationStore } from '@/lib/stores/personalization';
 import { useProfileStore } from '@/lib/stores/profile';
 import { useSessionStore } from '@/lib/stores/session';
 import { useAppTheme, useThemeStore } from '@/lib/stores/theme';
@@ -58,8 +58,6 @@ export default function SettingsScreen() {
   const adsReady = useAdsStore((s) => s.ready);
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const [importing, setImporting] = useState(false);
   const { alertConfig, showAlert, dismissAlert } = useAlert();
 
   useEffect(() => {
@@ -280,6 +278,12 @@ export default function SettingsScreen() {
               </View>
             </Card>
 
+            {/* ── Personalization ── */}
+            <SectionHeader>PERSONALIZATION</SectionHeader>
+            <Card>
+              <PersonalizationRows />
+            </Card>
+
             {/* ── Preferences ── */}
             <SectionHeader>PREFERENCES</SectionHeader>
             <Card>
@@ -318,96 +322,6 @@ export default function SettingsScreen() {
                   }
                 }}
               />
-            </Card>
-
-            {/* ── Data ── */}
-            <SectionHeader>DATA</SectionHeader>
-            <Card>
-              <SpringPressable
-                disabled={exporting}
-                onPress={async () => {
-                  if (!userId) return;
-                  setExporting(true);
-                  try {
-                    await exportBackup(userId);
-                  } catch (e: unknown) {
-                    showAlert(
-                      'Export failed',
-                      e instanceof Error ? e.message : 'Something went wrong.',
-                      undefined,
-                      '⚠️',
-                    );
-                  } finally {
-                    setExporting(false);
-                  }
-                }}
-                style={[rowStyle, { opacity: exporting ? 0.6 : 1 }]}
-              >
-                <IconBadge tint={C.accentLight}>
-                  <Download size={16} color={C.accent} />
-                </IconBadge>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 15, color: C.textPrimary }}>
-                    {exporting ? 'Exporting...' : 'Export backup'}
-                  </Text>
-                  <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 12, color: C.textMuted, marginTop: 2 }}>Save all data to a JSON file</Text>
-                </View>
-                <ChevronRight size={16} color={C.textFaint} />
-              </SpringPressable>
-
-              <Divider />
-
-              <SpringPressable
-                disabled={importing}
-                onPress={() => {
-                  if (!userId) return;
-                  showAlert(
-                    'Import backup',
-                    "Imported moneyboxes will be added as new entries. Existing ones won't be changed.",
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      {
-                        text: 'Import',
-                        onPress: async () => {
-                          setImporting(true);
-                          try {
-                            const { imported } = await importBackup(userId);
-                            if (imported > 0)
-                              showAlert(
-                                'Import complete',
-                                `Restored ${imported} moneybox${imported > 1 ? 'es' : ''}.`,
-                                undefined,
-                                '✅',
-                              );
-                          } catch (e: unknown) {
-                            showAlert(
-                              'Import failed',
-                              e instanceof Error ? e.message : 'Something went wrong.',
-                              undefined,
-                              '⚠️',
-                            );
-                          } finally {
-                            setImporting(false);
-                          }
-                        },
-                      },
-                    ],
-                    '📦',
-                  );
-                }}
-                style={[rowStyle, { opacity: importing ? 0.6 : 1 }]}
-              >
-                <IconBadge tint={C.accentLight}>
-                  <Upload size={16} color={C.accent} />
-                </IconBadge>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 15, color: C.textPrimary }}>
-                    {importing ? 'Importing...' : 'Import backup'}
-                  </Text>
-                  <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 12, color: C.textMuted, marginTop: 2 }}>Restore from a previous export</Text>
-                </View>
-                <ChevronRight size={16} color={C.textFaint} />
-              </SpringPressable>
             </Card>
 
             {/* ── Support ── */}
@@ -700,5 +614,78 @@ function SwitchRow({ icon, tint, title, subtitle, value, onChange }: SwitchRowPr
         thumbColor="#FFFFFF"
       />
     </View>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+ * Personalization section rows
+ * ──────────────────────────────────────────────────────────────────── */
+
+function PersonalizationRows() {
+  const C = useAppTheme();
+  const heroBackground = usePersonalizationStore((s) => s.heroBackground);
+  const setHeroBackground = usePersonalizationStore((s) => s.setHeroBackground);
+  const hydrate = usePersonalizationStore((s) => s.hydrate);
+
+  useEffect(() => {
+    hydrate();
+  }, [hydrate]);
+
+  const subtitle = heroBackground === 'painted-frame' ? 'Painted forest frame' : 'Default — gradient + mascot';
+
+  return (
+    <>
+      <SpringPressable
+        onPress={() =>
+          setHeroBackground(heroBackground === 'default' ? 'painted-frame' : 'default')
+        }
+        haptic
+        style={rowStyle}
+      >
+        <IconBadge tint={C.accentLight}>
+          <Wallpaper size={16} color={C.accent} />
+        </IconBadge>
+        <View style={{ flex: 1, marginRight: 12 }}>
+          <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 15, color: C.textPrimary }}>
+            Hero background
+          </Text>
+          <Text
+            style={{
+              fontFamily: 'DMSans_400Regular',
+              fontSize: 12,
+              color: C.textMuted,
+              marginTop: 2,
+            }}
+          >
+            {subtitle}
+          </Text>
+        </View>
+        <ChevronRight size={18} color={C.textFaint} />
+      </SpringPressable>
+
+      <Divider />
+
+      {/* Placeholder for future personalization options */}
+      <View style={[rowStyle, { opacity: 0.55 }]}>
+        <IconBadge tint={C.accentLight}>
+          <Sparkles size={16} color={C.accent} />
+        </IconBadge>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 15, color: C.textPrimary }}>
+            More personalizations
+          </Text>
+          <Text
+            style={{
+              fontFamily: 'DMSans_400Regular',
+              fontSize: 12,
+              color: C.textMuted,
+              marginTop: 2,
+            }}
+          >
+            Coming soon
+          </Text>
+        </View>
+      </View>
+    </>
   );
 }

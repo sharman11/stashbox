@@ -30,7 +30,7 @@ import {
   AdEventType,
   RewardedAd,
   RewardedAdEventType,
-} from 'react-native-google-mobile-ads';
+} from '@/lib/ads-placeholder';
 import { useAdsStore } from '@/lib/stores/ads';
 import { formatAmount } from '@/lib/currency';
 import { useAlert } from '@/lib/use-alert';
@@ -804,7 +804,7 @@ export default function MoneyboxDetailScreen() {
                         : filledCount === 1
                           ? `You’ll lose 1 saved cell (${formattedSaved}). This can’t be undone.`
                           : `You’ll lose ${filledCount} saved cells totalling ${formattedSaved}. This can’t be undone.`;
-                    showAlert('Abandon moneybox?', abandonMessage, [
+                    showAlert('Abandon stashbox?', abandonMessage, [
                       { text: 'Cancel', style: 'cancel' },
                       {
                         text: 'Abandon',

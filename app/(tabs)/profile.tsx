@@ -33,7 +33,7 @@ import { CustomAlert } from '@/components/CustomAlert';
 import { SpringPressable } from '@/components/SpringPressable';
 
 import { AD_UNIT_IDS } from '@/lib/ads';
-import { BannerAd, BannerAdSize } from 'react-native-google-mobile-ads';
+import { BannerAd, BannerAdSize } from '@/lib/ads-placeholder';
 import { deleteAccount } from '@/lib/auth';
 import { BADGES, getBadge } from '@/lib/badges/catalog';
 import { useBadgesStore } from '@/lib/badges/store';
@@ -197,7 +197,11 @@ export default function ProfileScreen() {
             useSessionStore.getState().setTransitioning(true);
             try {
               await signOut();
-              router.replace('/(auth)/login');
+              // Logout lands the user on the onboarding carousel (welcome),
+              // NOT the signup flow. Terminology in this codebase:
+              //   "onboarding" = /(auth)/welcome (the 4-slide intro carousel)
+              //   "signup flow" = /(auth)/signup (the 7-step stepper)
+              router.replace('/(auth)/welcome');
             } finally {
               useSessionStore.getState().setTransitioning(false);
             }
@@ -211,7 +215,7 @@ export default function ProfileScreen() {
   const onDelete = () => {
     showAlert(
       'Delete account?',
-      'This will permanently delete your account, all moneyboxes, and all saved data. This cannot be undone.',
+      'This will permanently delete your account, all stashboxes, and all saved data. This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
