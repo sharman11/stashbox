@@ -7,6 +7,7 @@ import { DebtFreeCard } from '@/components/home/DebtFreeCard';
 import { EmptyHero } from '@/components/home/EmptyHero';
 import { HomeHero } from '@/components/home/HomeHero';
 import { QuickActions } from '@/components/home/QuickActions';
+import { SafeToSpendCard } from '@/components/home/SafeToSpendCard';
 import { useExpenseBudgetsStore } from '@/lib/stores/expense-budgets';
 import { useExpenseTransactionsStore } from '@/lib/stores/expense-transactions';
 import { useLoansStore } from '@/lib/stores/loans';
@@ -77,11 +78,13 @@ export default function HomeScreen() {
         {showEmptyHero ? <EmptyHero /> : <HomeHero />}
 
         {/* ── Below the hero:
-         *  ① quick actions → ② what needs attention → ③ debt-free optimizer */}
+         *  ① quick actions → ② what needs attention → ③ safe to spend (daily)
+         *  → ④ debt-free optimizer */}
         {!showEmptyHero && (
           <View style={{ paddingHorizontal: 16, paddingTop: 40, gap: 20 }}>
             <QuickActions />
             <AttentionFeed />
+            <SafeToSpendCard />
             <DebtFreeCard />
           </View>
         )}
