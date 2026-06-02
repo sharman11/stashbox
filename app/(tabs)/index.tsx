@@ -6,6 +6,7 @@ import { AttentionFeed } from '@/components/home/AttentionFeed';
 import { DebtFreeCard } from '@/components/home/DebtFreeCard';
 import { EmptyHero } from '@/components/home/EmptyHero';
 import { HomeHero } from '@/components/home/HomeHero';
+import { NetWorthCard } from '@/components/home/NetWorthCard';
 import { ProgressCard } from '@/components/home/ProgressCard';
 import { SafeToSpendCard } from '@/components/home/SafeToSpendCard';
 import { useExpenseBudgetsStore } from '@/lib/stores/expense-budgets';
@@ -88,6 +89,7 @@ export default function HomeScreen() {
             <AttentionFeed />
             <SafeToSpendCard />
             <DebtFreeCard />
+            <NetWorthCard />
             <ProgressCard />
           </View>
         )}
