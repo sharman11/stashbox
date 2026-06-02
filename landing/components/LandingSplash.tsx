@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
  * Stashbox landing-page loading splash.
  *
  * Mirrors the app's cold-boot splash (components/SplashAnimation.tsx):
- *  1. Cheek fill — the Gullu mascot plays through 5 frames once, empty ->
+ *  1. Cheek fill — the squirrel mascot plays through 5 frames once, empty ->
  *     bursting, then holds on the full frame.
  *  2. Wordmark — letters of "Stashbox" fade up with a stagger.
  *  3. Footer — "FROM Optruvian" fades in last.

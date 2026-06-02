@@ -24,7 +24,7 @@
  * ════════════════════════════════════════════════════════════════════════════
  */
 
-import { Text, View } from 'react-native';
+import { Platform, Text, View } from 'react-native';
 
 interface BannerProps {
   unitId?: string;
@@ -41,6 +41,8 @@ const SIZE_HEIGHT: Record<string, number> = {
 };
 
 export function BannerAd({ size }: BannerProps) {
+  // iOS ships without ads — render nothing so no placeholder shows either.
+  if (Platform.OS === 'ios') return null;
   const height = size ? SIZE_HEIGHT[size] ?? 60 : 60;
   return (
     <View

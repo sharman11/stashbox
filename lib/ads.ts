@@ -1,16 +1,14 @@
-import { TestIds } from 'react-native-google-mobile-ads';
+import { TestIds } from '@/lib/ads-placeholder';
 
 /**
  * Ad unit IDs.
  *
- * Production IDs ship in release builds. In development we substitute
- * Google's TestIds to avoid AdMob policy violations. AdMob accounts can be
- * permanently banned for serving real ads on a developer's own device.
- * Never set __DEV__ to false locally and tap an ad on your own phone.
- *
- * The placeholder shim lives at `lib/ads-placeholder.tsx` for Expo Go
- * testing. To re-enable it, swap every `react-native-google-mobile-ads`
- * import across app/ and components/ back to `@/lib/ads-placeholder`.
+ * Currently routed through `@/lib/ads-placeholder` so the app renders grey
+ * placeholder rectangles instead of real AdMob ads while the app is being
+ * updated. Before a production release, swap this import (and every other
+ * `@/lib/ads-placeholder` import across app/ and components/) back to
+ * `react-native-google-mobile-ads`. The archived real-ad config lives in
+ * `lib/archive/ads.real.ts`.
  */
 
 const PROD = {

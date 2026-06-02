@@ -9,18 +9,36 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "ios": {
+        "simulator": true,
+        "env": {
+          "EXPO_PUBLIC_TARGET_PLATFORM": "ios"
+        }
       }
     },
     "preview": {
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "ios": {
+        "simulator": true,
+        "env": {
+          "EXPO_PUBLIC_TARGET_PLATFORM": "ios"
+        }
       }
     },
     "production": {
       "autoIncrement": true,
       "android": {
         "buildType": "app-bundle"
+      },
+      "ios": {
+        "autoIncrement": "buildNumber",
+        "env": {
+          "EXPO_PUBLIC_TARGET_PLATFORM": "ios"
+        }
       }
     }
   },
@@ -29,6 +47,10 @@
       "android": {
         "serviceAccountKeyPath": "./play-store-key.json",
         "track": "production"
+      },
+      "ios": {
+        "ascAppId": "REPLACE_WITH_APP_STORE_CONNECT_APP_ID",
+        "appleTeamId": "REPLACE_WITH_APPLE_TEAM_ID"
       }
     }
   }
