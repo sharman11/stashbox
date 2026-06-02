@@ -154,10 +154,13 @@ export function progressForBudget(
   rates: Record<string, number>,
 ): BudgetProgress {
   const monthPrefix = budget.periodMonth.slice(0, 7);
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   let spent = 0;
   for (const t of transactions) {
     if (t.type !== 'expense') continue;
     if (!t.occurredOn.startsWith(monthPrefix)) continue;
+    if (t.occurredOn > today) continue; // skip future-dated (B2)
     if (budget.categoryId !== null && t.categoryId !== budget.categoryId) continue;
     spent += convertCents(t.amountCents, t.currency, budget.currency, rates);
   }

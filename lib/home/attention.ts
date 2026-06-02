@@ -23,6 +23,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { formatAmount } from '@/lib/currency';
 import { convertCents, getCachedRates, getFxRates } from '@/lib/expenses/fx';
 import { useExpenseBudgetsStore } from '@/lib/stores/expense-budgets';
+import { useExpenseCategoriesStore } from '@/lib/stores/expense-categories';
 import { useExpenseTransactionsStore } from '@/lib/stores/expense-transactions';
 import { useLoansStore } from '@/lib/stores/loans';
 import { useMoneyboxesStore } from '@/lib/stores/moneyboxes';
@@ -70,9 +71,10 @@ function dueDateThisMonth(dueDay: number): string {
 }
 
 function daysLeftInMonth(): number {
+  // Today-inclusive, to match the safe-to-spend card's denominator.
   const t = new Date();
   const last = new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate();
-  return last - t.getDate();
+  return last - t.getDate() + 1;
 }
 
 function dueSuffix(days: number): string {
@@ -95,6 +97,7 @@ export function useAttentionFeed(): AttentionItem[] {
   const loans = useLoansStore((s) => s.loans);
   const paymentsByLoan = useLoansStore((s) => s.paymentsByLoan);
   const budgets = useExpenseBudgetsStore((s) => s.budgets);
+  const categories = useExpenseCategoriesStore((s) => s.categories);
   const transactions = useExpenseTransactionsStore((s) => s.transactions);
 
   // Streaks are fetched per-box and aren't bulk-loaded elsewhere now that the
@@ -160,16 +163,17 @@ export function useAttentionFeed(): AttentionItem[] {
     const overall = budgets.find(
       (b) => b.categoryId === null && b.periodMonth.slice(0, 7) === monthPrefix,
     );
+    const left = daysLeftInMonth();
+    const leftLabel = `${left} day${left === 1 ? '' : 's'} left`;
     if (overall && overall.limitCents > 0) {
       let spentCents = 0;
       for (const t of transactions) {
         if (t.type !== 'expense') continue;
         if (!t.occurredOn.startsWith(monthPrefix)) continue;
+        if (t.occurredOn > today) continue; // skip future-dated (B2)
         spentCents += convertCents(t.amountCents, t.currency, overall.currency, rates);
       }
       const ratio = spentCents / overall.limitCents;
-      const left = daysLeftInMonth();
-      const leftLabel = `${left} day${left === 1 ? '' : 's'} left`;
       if (ratio >= 1) {
         const overBy = formatAmount(Math.round((spentCents - overall.limitCents) / 100), overall.currency);
         items.push({
@@ -188,6 +192,48 @@ export function useAttentionFeed(): AttentionItem[] {
           tone: 'amber',
           emoji: '⚠️',
           title: `Budget ${Math.round(ratio * 100)}% used`,
+          subtitle: `${leftLabel} this month`,
+          href: '/expenses/budgets',
+        });
+      }
+    }
+
+    // ── Per-category budgets: over (25) or near cap ≥85% (42) ──
+    // Caps are constraints surfaced as alerts (they don't fold into the daily
+    // safe-to-spend figure). Sits just below the overall-budget tiers.
+    const categoryName = new Map(categories.map((c) => [c.id, c.name]));
+    for (const b of budgets) {
+      if (b.categoryId === null) continue;
+      if (b.periodMonth.slice(0, 7) !== monthPrefix) continue;
+      if (b.limitCents <= 0) continue;
+      let spent = 0;
+      for (const t of transactions) {
+        if (t.type !== 'expense') continue;
+        if (t.categoryId !== b.categoryId) continue;
+        if (!t.occurredOn.startsWith(monthPrefix)) continue;
+        if (t.occurredOn > today) continue;
+        spent += convertCents(t.amountCents, t.currency, b.currency, rates);
+      }
+      const ratio = spent / b.limitCents;
+      const name = categoryName.get(b.categoryId) ?? 'A category';
+      if (ratio >= 1) {
+        const overBy = formatAmount(Math.round((spent - b.limitCents) / 100), b.currency);
+        items.push({
+          id: `cat-over-${b.id}`,
+          score: 25,
+          tone: 'red',
+          emoji: '⚠️',
+          title: `${name} over budget`,
+          subtitle: `${overBy} over with ${leftLabel}`,
+          href: '/expenses/budgets',
+        });
+      } else if (ratio >= 0.85) {
+        items.push({
+          id: `cat-near-${b.id}`,
+          score: 42,
+          tone: 'amber',
+          emoji: '⚠️',
+          title: `${name} ${Math.round(ratio * 100)}% used`,
           subtitle: `${leftLabel} this month`,
           href: '/expenses/budgets',
         });
@@ -233,5 +279,5 @@ export function useAttentionFeed(): AttentionItem[] {
 
     items.sort((a, b) => a.score - b.score);
     return items.slice(0, MAX_ITEMS);
-  }, [moneyboxes, streaks, loans, paymentsByLoan, budgets, transactions, profile?.defaultCurrency]);
+  }, [moneyboxes, streaks, loans, paymentsByLoan, budgets, categories, transactions, profile?.defaultCurrency]);
 }

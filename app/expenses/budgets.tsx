@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ChevronLeft, Trash2 } from 'lucide-react-native';
-import { useEffect, useMemo, useState } from 'react';
+import { Check, ChevronLeft, Plus, Trash2 } from 'lucide-react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -50,6 +50,7 @@ export default function BudgetsScreen() {
   const homeCurrency: CurrencyCode = profile?.defaultCurrency ?? 'USD';
 
   const categories = useExpenseCategoriesStore((s) => s.categories);
+  const seedDefaultCategories = useExpenseCategoriesStore((s) => s.seedDefaultsIfEmpty);
   const transactions = useExpenseTransactionsStore((s) => s.transactions);
   const budgets = useExpenseBudgetsStore((s) => s.budgets);
   const setBudget = useExpenseBudgetsStore((s) => s.setBudget);
@@ -60,6 +61,12 @@ export default function BudgetsScreen() {
   useEffect(() => {
     getFxRates().then(setRates).catch(() => undefined);
   }, []);
+
+  // Ensure the starter-pack categories exist so the user can set budgets
+  // immediately (and add their own via the button below).
+  useEffect(() => {
+    if (userId) seedDefaultCategories(userId).catch(() => undefined);
+  }, [userId, seedDefaultCategories]);
 
   const period = currentMonthAnchor();
 
@@ -178,7 +185,7 @@ export default function BudgetsScreen() {
             label="All expenses combined"
             emoji="💸"
             color={C.accent}
-            currency={homeCurrency}
+            currency={overallBudget?.currency ?? homeCurrency}
             currentLimit={overallBudget ? overallBudget.limitCents / 100 : 0}
             spent={overallProgress ? overallProgress.spentCents / 100 : 0}
             ratio={overallProgress?.ratio ?? 0}
@@ -188,33 +195,42 @@ export default function BudgetsScreen() {
 
           {/* Per-category */}
           <SectionLabel>By category</SectionLabel>
-          {expenseCategories.length === 0 ? (
-            <Text
+          <View style={{ gap: 10 }}>
+            {expenseCategories.map((cat) => (
+              <CategoryBudgetRow
+                key={cat.id}
+                cat={cat}
+                budget={categoryBudgetById.get(cat.id) ?? null}
+                homeCurrency={homeCurrency}
+                transactions={transactions}
+                rates={rates}
+                onSave={(amt) => onSetBudget(cat.id, amt)}
+                onRemove={() => onRemove(cat.id)}
+              />
+            ))}
+
+            {/* Add a custom category (opens the categories manager) */}
+            <Pressable
+              onPress={() => router.push('/expenses/categories')}
               style={{
-                fontFamily: 'DMSans_400Regular',
-                fontSize: 13,
-                color: C.textMuted,
-                paddingHorizontal: 4,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                paddingVertical: 14,
+                borderRadius: 14,
+                borderWidth: 1,
+                borderColor: C.border,
+                borderStyle: 'dashed',
+                backgroundColor: C.surface,
               }}
             >
-              Add some expense categories first.
-            </Text>
-          ) : (
-            <View style={{ gap: 10 }}>
-              {expenseCategories.map((cat) => (
-                <CategoryBudgetRow
-                  key={cat.id}
-                  cat={cat}
-                  budget={categoryBudgetById.get(cat.id) ?? null}
-                  homeCurrency={homeCurrency}
-                  transactions={transactions}
-                  rates={rates}
-                  onSave={(amt) => onSetBudget(cat.id, amt)}
-                  onRemove={() => onRemove(cat.id)}
-                />
-              ))}
-            </View>
-          )}
+              <Plus size={16} color={C.accent} strokeWidth={2.5} />
+              <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: C.accent }}>
+                Add custom category
+              </Text>
+            </Pressable>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -262,10 +278,29 @@ function BudgetRow(props: BudgetRowProps) {
     props.currentLimit > 0 ? props.currentLimit.toString() : '',
   );
 
-  const commit = () => {
+  const [justSaved, setJustSaved] = useState(false);
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (savedTimer.current) clearTimeout(savedTimer.current);
+    },
+    [],
+  );
+
+  // Silent save (used by onBlur) — returns whether a valid value was committed.
+  const commit = (): boolean => {
     const v = Number(text.replace(/[^0-9.]/g, ''));
-    if (!Number.isFinite(v)) return;
+    if (!Number.isFinite(v)) return false;
     props.onSave(v);
+    return true;
+  };
+
+  // Explicit Save-button press: commit, then flash a "Saved" confirmation.
+  const handleSavePress = () => {
+    if (!commit()) return;
+    setJustSaved(true);
+    if (savedTimer.current) clearTimeout(savedTimer.current);
+    savedTimer.current = setTimeout(() => setJustSaved(false), 1600);
   };
 
   const status =
@@ -360,16 +395,23 @@ function BudgetRow(props: BudgetRowProps) {
           />
         </View>
         <Pressable
-          onPress={commit}
+          onPress={handleSavePress}
+          disabled={justSaved}
           style={{
-            backgroundColor: C.accent,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 4,
+            minWidth: 78,
+            backgroundColor: justSaved ? '#16A34A' : C.accent,
             paddingHorizontal: 14,
             paddingVertical: 10,
             borderRadius: 10,
           }}
         >
+          {justSaved && <Check size={14} color="#FFFFFF" strokeWidth={2.5} />}
           <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 13, color: '#FFFFFF' }}>
-            Save
+            {justSaved ? 'Saved' : 'Save'}
           </Text>
         </Pressable>
       </View>
@@ -446,7 +488,7 @@ function CategoryBudgetRow({
       label={cat.name}
       emoji={cat.emoji}
       color={cat.color}
-      currency={homeCurrency}
+      currency={budget?.currency ?? homeCurrency}
       currentLimit={budget ? budget.limitCents / 100 : 0}
       spent={progress ? progress.spentCents / 100 : 0}
       ratio={progress?.ratio ?? 0}

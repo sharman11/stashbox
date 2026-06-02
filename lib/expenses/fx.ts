@@ -161,6 +161,55 @@ export function getCachedRates(): Record<string, number> {
   return memoryCache?.rates ?? (FALLBACK_RATES as unknown as Record<string, number>);
 }
 
+/* ──────────────────────────────────────────────────────────────────────
+ * Month-anchored snapshot
+ *
+ * Budget math (safe-to-spend, budget progress) should use ONE stable rate set
+ * for the whole month, so the daily guidance doesn't wobble as live rates
+ * refresh. We freeze the first rates we see in a given month and reuse them.
+ * Display of historical/cross-month values keeps using live rates.
+ * ──────────────────────────────────────────────────────────────────── */
+
+const MONTH_SNAPSHOT_PREFIX = 'stashbox_fx_month_';
+const monthSnapshots = new Map<string, Record<string, number>>();
+
+/** Synchronous accessor for a month's frozen rates; falls back to whatever
+ *  cache is warm until getMonthRates(monthKey) resolves. monthKey is "YYYY-MM". */
+export function getCachedMonthRates(monthKey: string): Record<string, number> {
+  return monthSnapshots.get(monthKey) ?? getCachedRates();
+}
+
+/** Returns the rate set frozen for `monthKey` ("YYYY-MM"), capturing the
+ *  current rates as that month's snapshot on first call. Persisted so the
+ *  snapshot survives app restarts within the month. */
+export async function getMonthRates(monthKey: string): Promise<Record<string, number>> {
+  const mem = monthSnapshots.get(monthKey);
+  if (mem) return mem;
+
+  try {
+    const raw = await AsyncStorage.getItem(MONTH_SNAPSHOT_PREFIX + monthKey);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Record<string, number>;
+      if (parsed && typeof parsed === 'object') {
+        monthSnapshots.set(monthKey, parsed);
+        return parsed;
+      }
+    }
+  } catch {
+    /* fall through to capture */
+  }
+
+  // First time we've needed this month — freeze the current live/cached rates.
+  const live = await getFxRates();
+  monthSnapshots.set(monthKey, live);
+  try {
+    await AsyncStorage.setItem(MONTH_SNAPSHOT_PREFIX + monthKey, JSON.stringify(live));
+  } catch {
+    /* best-effort */
+  }
+  return live;
+}
+
 /**
  * Convert `amount` from `from` currency to `to` currency.
  * Rates are USD-based: amountInUSD = amount / rates[from]; out = amountInUSD * rates[to].
