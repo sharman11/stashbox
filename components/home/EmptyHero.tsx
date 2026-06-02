@@ -103,7 +103,7 @@ export function EmptyHero() {
               marginTop: 10,
             }}
           >
-            {`Stashbox helps you save toward what matters. Let's set up your first goal — a vacation, an emergency fund, anything you're saving for.`}
+            {`Pick something you're saving for and watch it fill up, one tap at a time. Setting up your first goal takes about a minute.`}
           </Text>
 
           <View style={{ flexDirection: 'row', marginTop: 22 }}>

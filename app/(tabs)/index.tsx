@@ -84,7 +84,7 @@ export default function HomeScreen() {
         {/* ── Below the hero:
          *  ① what needs attention → ② safe to spend (daily) → ③ debt-free optimizer */}
         {!showEmptyHero && (
-          <View style={{ paddingHorizontal: 16, paddingTop: 40, gap: 20 }}>
+          <View style={{ paddingHorizontal: 16, paddingTop: 30, gap: 20 }}>
             <AttentionFeed />
             <SafeToSpendCard />
             <DebtFreeCard />
