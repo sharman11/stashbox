@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { captureError } from '@/lib/observability';
 import { useAppTheme } from '@/lib/stores/theme';
 
 interface Props {
@@ -21,6 +22,10 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
   static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, info: { componentStack?: string | null }) {
+    captureError(error, { componentStack: info.componentStack ?? undefined });
   }
 
   private handleReset = () => {

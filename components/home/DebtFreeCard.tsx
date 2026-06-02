@@ -8,6 +8,7 @@ import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { SpringPressable } from '@/components/SpringPressable';
 import { formatCents, formatDuration, formatApr } from '@/lib/loans/math';
 import { applyExtra, buildDebtFreeSummary, formatMonthYear } from '@/lib/loans/payoff-summary';
+import { track } from '@/lib/observability';
 import { useEntitlement } from '@/lib/stores/entitlement';
 import { useLoansStore } from '@/lib/stores/loans';
 
@@ -95,7 +96,10 @@ export function DebtFreeCard() {
           {/* What-if extra payment — Stashbox+ gated */}
           {!summary.stalled && summary.targetLoan && !isPro && (
             <SpringPressable
-              onPress={() => router.push('/paywall' as never)}
+              onPress={() => {
+                track('upsell_tapped', { source: 'debt_optimizer' });
+                router.push('/paywall' as never);
+              }}
               haptic
               style={{
                 flexDirection: 'row',

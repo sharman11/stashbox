@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SpringPressable } from '@/components/SpringPressable';
 import { getCurrentOffering, purchase, restore } from '@/lib/iap/purchases';
+import { track } from '@/lib/observability';
 import { useAppTheme } from '@/lib/stores/theme';
 
 const BENEFITS = [
@@ -43,6 +44,7 @@ export default function PaywallScreen() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    track('paywall_viewed');
     let alive = true;
     getCurrentOffering().then((o) => {
       if (!alive) return;
@@ -61,6 +63,7 @@ export default function PaywallScreen() {
     try {
       const ok = await purchase(selected);
       if (ok) {
+        track('subscribe_completed', { package: selected.identifier });
         router.back();
       }
     } catch {

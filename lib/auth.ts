@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { track } from './observability';
 import { supabase } from './supabase';
 
 /* ──────────────────────────────────────────────────────────────────────
@@ -63,6 +64,7 @@ export async function verifyEmailOtp(email: string, code: string): Promise<void>
     }
     throw new Error(error.message);
   }
+  track('auth_completed');
 }
 
 /* ──────────────────────────────────────────────────────────────────────

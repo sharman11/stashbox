@@ -21,6 +21,7 @@ import { BadgeCelebration } from '@/components/BadgeCelebration';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { SplashAnimation } from '@/components/SplashAnimation';
 import { initPurchases } from '@/lib/iap/purchases';
+import { identify, initObservability } from '@/lib/observability';
 import { registerForPushNotifications, setupNotificationListener } from '@/lib/push';
 import { useAdsStore } from '@/lib/stores/ads';
 import { useAppReadyStore } from '@/lib/stores/app-ready';
@@ -85,6 +86,7 @@ function useBootstrap() {
   });
 
   useEffect(() => {
+    initObservability();
     let subscription: { unsubscribe: () => void } | null = null;
     init().then((sub) => { subscription = sub; });
     // Warm up bonus-currency cache from AsyncStorage so it's available before
@@ -110,6 +112,7 @@ function useBootstrap() {
       // Configure RevenueCat with the (stable) Supabase user id so Stashbox+
       // entitlements follow the account across anon→permanent conversion.
       initPurchases(userId);
+      identify(userId);
     }
   }, [userId, load, loadAvatar]);
 
