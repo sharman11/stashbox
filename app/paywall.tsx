@@ -7,8 +7,9 @@ import type { PurchasesOffering, PurchasesPackage } from 'react-native-purchases
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SpringPressable } from '@/components/SpringPressable';
-import { getCurrentOffering, purchase, restore } from '@/lib/iap/purchases';
+import { getCurrentOffering, devSetPro, IAP_DUMMY, purchase, restore } from '@/lib/iap/purchases';
 import { track } from '@/lib/observability';
+import { useEntitlement } from '@/lib/stores/entitlement';
 import { useAppTheme } from '@/lib/stores/theme';
 
 const BENEFITS = [
@@ -38,13 +39,15 @@ export default function PaywallScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
+  const isPro = useEntitlement();
   const [offering, setOffering] = useState<PurchasesOffering | null>(null);
   const [selected, setSelected] = useState<PurchasesPackage | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!IAP_DUMMY);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     track('paywall_viewed');
+    if (IAP_DUMMY) return; // no offerings to load in dev mode
     let alive = true;
     getCurrentOffering().then((o) => {
       if (!alive) return;
@@ -58,9 +61,16 @@ export default function PaywallScreen() {
   }, []);
 
   const onSubscribe = async () => {
-    if (!selected || busy) return;
+    if (busy) return;
     setBusy(true);
     try {
+      if (IAP_DUMMY) {
+        await devSetPro(true);
+        track('subscribe_completed', { package: 'dev' });
+        router.back();
+        return;
+      }
+      if (!selected) return;
       const ok = await purchase(selected);
       if (ok) {
         track('subscribe_completed', { package: selected.identifier });
@@ -77,6 +87,11 @@ export default function PaywallScreen() {
     if (busy) return;
     setBusy(true);
     try {
+      if (IAP_DUMMY) {
+        await devSetPro(false); // dev: deactivate to re-test the locked state
+        router.back();
+        return;
+      }
       const ok = await restore();
       if (ok) {
         router.back();
@@ -129,7 +144,16 @@ export default function PaywallScreen() {
         </View>
 
         <View style={{ marginTop: 28, gap: 10 }}>
-          {loading ? (
+          {IAP_DUMMY ? (
+            <View style={{ padding: 14, borderRadius: 14, borderWidth: 1, borderStyle: 'dashed', borderColor: C.border, backgroundColor: C.accent + '0D' }}>
+              <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 13, color: C.textPrimary }}>
+                Developer mode
+              </Text>
+              <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 12, color: C.textSecondary, marginTop: 4, lineHeight: 17 }}>
+                RevenueCat isn’t configured yet. {isPro ? 'Stashbox+ is currently simulated as active.' : 'Activate to simulate a subscription and test the Stashbox+ features.'}
+              </Text>
+            </View>
+          ) : loading ? (
             <ActivityIndicator color={C.accent} style={{ marginVertical: 24 }} />
           ) : !offering || offering.availablePackages.length === 0 ? (
             <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 14, color: C.textSecondary, textAlign: 'center', marginVertical: 16 }}>
@@ -168,29 +192,31 @@ export default function PaywallScreen() {
       </ScrollView>
 
       <View style={{ paddingHorizontal: 24, paddingBottom: insets.bottom + 16, gap: 12 }}>
-        <SpringPressable
-          onPress={onSubscribe}
-          haptic
-          disabled={busy || !selected}
-          style={{
-            backgroundColor: selected ? C.accent : C.border,
-            borderRadius: 999,
-            paddingVertical: 16,
-            alignItems: 'center',
-            opacity: busy ? 0.7 : 1,
-          }}
-        >
-          {busy ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={{ fontFamily: 'DMSans_700Bold', fontSize: 16, color: '#FFFFFF' }}>
-              Continue
-            </Text>
-          )}
-        </SpringPressable>
+        {!(IAP_DUMMY && isPro) && (
+          <SpringPressable
+            onPress={onSubscribe}
+            haptic
+            disabled={busy || (!IAP_DUMMY && !selected)}
+            style={{
+              backgroundColor: IAP_DUMMY || selected ? C.accent : C.border,
+              borderRadius: 999,
+              paddingVertical: 16,
+              alignItems: 'center',
+              opacity: busy ? 0.7 : 1,
+            }}
+          >
+            {busy ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={{ fontFamily: 'DMSans_700Bold', fontSize: 16, color: '#FFFFFF' }}>
+                {IAP_DUMMY ? 'Activate Stashbox+ (dev)' : 'Continue'}
+              </Text>
+            )}
+          </SpringPressable>
+        )}
         <SpringPressable onPress={onRestore} haptic disabled={busy} style={{ alignItems: 'center', paddingVertical: 4 }}>
           <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 13, color: C.textSecondary }}>
-            Restore purchases
+            {IAP_DUMMY ? (isPro ? 'Deactivate Stashbox+ (dev)' : 'Restore purchases') : 'Restore purchases'}
           </Text>
         </SpringPressable>
       </View>

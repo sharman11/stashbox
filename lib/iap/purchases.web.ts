@@ -7,9 +7,14 @@
 import { useEntitlementStore } from '@/lib/stores/entitlement';
 
 export const ENTITLEMENT_ID = 'pro';
+export const IAP_DUMMY = true;
 
 export async function initPurchases(_userId: string | null): Promise<void> {
   useEntitlementStore.getState().setReady(true);
+}
+
+export async function devSetPro(on: boolean): Promise<void> {
+  useEntitlementStore.getState().setPro(on);
 }
 
 export async function getCurrentOffering(): Promise<null> {

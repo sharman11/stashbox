@@ -14,6 +14,7 @@
  *        EXPO_PUBLIC_RC_IOS_KEY, EXPO_PUBLIC_RC_ANDROID_KEY
  */
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import Purchases, {
   type CustomerInfo,
@@ -31,6 +32,11 @@ const API_KEY = Platform.select({
   android: process.env.EXPO_PUBLIC_RC_ANDROID_KEY,
 });
 
+/** Dev/dummy mode: no RevenueCat key configured. The paywall simulates a
+ *  subscription so gating can be tested end-to-end before RC is wired up. */
+export const IAP_DUMMY = !API_KEY;
+const DUMMY_KEY = 'stashbox_plus_dev';
+
 let configured = false;
 
 function isProActive(info: CustomerInfo): boolean {
@@ -43,6 +49,18 @@ function isProActive(info: CustomerInfo): boolean {
  * entitlements follow the (stable) Supabase user id across anon→permanent.
  */
 export async function initPurchases(userId: string | null): Promise<void> {
+  // Dev/dummy mode → restore the simulated entitlement from storage.
+  if (IAP_DUMMY) {
+    try {
+      const v = await AsyncStorage.getItem(DUMMY_KEY);
+      useEntitlementStore.getState().setPro(v === '1');
+    } catch {
+      /* free tier */
+    }
+    useEntitlementStore.getState().setReady(true);
+    return;
+  }
+
   if (configured) {
     if (userId) {
       try {
@@ -108,4 +126,16 @@ export async function restore(): Promise<boolean> {
   const pro = isProActive(info);
   useEntitlementStore.getState().setPro(pro);
   return pro;
+}
+
+/** Dev/dummy only: simulate granting or revoking Stashbox+ (persisted). No-op
+ *  once a real RevenueCat key is configured. */
+export async function devSetPro(on: boolean): Promise<void> {
+  if (!IAP_DUMMY) return;
+  useEntitlementStore.getState().setPro(on);
+  try {
+    await AsyncStorage.setItem(DUMMY_KEY, on ? '1' : '0');
+  } catch {
+    /* best-effort */
+  }
 }
