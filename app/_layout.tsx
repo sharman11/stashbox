@@ -19,6 +19,7 @@ import 'react-native-url-polyfill/auto';
 import '../global.css';
 import { BadgeCelebration } from '@/components/BadgeCelebration';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { SplashAnimation } from '@/components/SplashAnimation';
 import { initPurchases } from '@/lib/iap/purchases';
 import { identify, initObservability } from '@/lib/observability';
@@ -328,6 +329,7 @@ export default function RootLayout() {
           <Stack.Screen name="games/whack-a-coin" />
         </Stack>
         <BadgeCelebration />
+        <OfflineBanner />
         <StatusBar style={splashExited ? (resolvedDark ? 'light' : 'dark') : 'light'} />
 
         {!splashExited && (
