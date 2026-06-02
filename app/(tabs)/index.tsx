@@ -6,9 +6,9 @@ import { AttentionFeed } from '@/components/home/AttentionFeed';
 import { DebtFreeCard } from '@/components/home/DebtFreeCard';
 import { EmptyHero } from '@/components/home/EmptyHero';
 import { HomeHero } from '@/components/home/HomeHero';
-import { QuickActions } from '@/components/home/QuickActions';
 import { SafeToSpendCard } from '@/components/home/SafeToSpendCard';
 import { useExpenseBudgetsStore } from '@/lib/stores/expense-budgets';
+import { useExpenseCategoriesStore } from '@/lib/stores/expense-categories';
 import { useExpenseTransactionsStore } from '@/lib/stores/expense-transactions';
 import { useLoansStore } from '@/lib/stores/loans';
 import { useMoneyboxesStore } from '@/lib/stores/moneyboxes';
@@ -27,17 +27,20 @@ export default function HomeScreen() {
   const loadPayments = useLoansStore((s) => s.loadPayments);
   const loadTransactions = useExpenseTransactionsStore((s) => s.loadAll);
   const loadBudgets = useExpenseBudgetsStore((s) => s.loadAll);
+  const loadCategories = useExpenseCategoriesStore((s) => s.loadAll);
 
-  // Hydrate the data sources the hero charts and attention feed read from
-  // (boxes/cells, loans/payments, expense transactions, budgets). Every store
-  // is TTL-cached internally, so re-running this is cheap.
+  // Hydrate the data sources the hero charts and home cards read from
+  // (boxes/cells, loans/payments, expense transactions, budgets, categories).
+  // Categories drive the safe-to-spend bar's segment colors. Every store is
+  // TTL-cached internally, so re-running this is cheap.
   useEffect(() => {
     if (!userId) return;
     loadAllBoxes(userId);
     loadAllLoans(userId);
     loadTransactions(userId);
     loadBudgets(userId);
-  }, [userId, loadAllBoxes, loadAllLoans, loadTransactions, loadBudgets]);
+    loadCategories(userId);
+  }, [userId, loadAllBoxes, loadAllLoans, loadTransactions, loadBudgets, loadCategories]);
 
   useEffect(() => {
     for (const box of moneyboxes) {
@@ -78,11 +81,9 @@ export default function HomeScreen() {
         {showEmptyHero ? <EmptyHero /> : <HomeHero />}
 
         {/* ── Below the hero:
-         *  ① quick actions → ② what needs attention → ③ safe to spend (daily)
-         *  → ④ debt-free optimizer */}
+         *  ① what needs attention → ② safe to spend (daily) → ③ debt-free optimizer */}
         {!showEmptyHero && (
           <View style={{ paddingHorizontal: 16, paddingTop: 40, gap: 20 }}>
-            <QuickActions />
             <AttentionFeed />
             <SafeToSpendCard />
             <DebtFreeCard />

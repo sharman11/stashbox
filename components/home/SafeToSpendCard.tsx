@@ -1,24 +1,26 @@
 import { useRouter } from 'expo-router';
 import { ChevronRight, Wallet } from 'lucide-react-native';
-import { Text, View } from 'react-native';
+import { useState } from 'react';
+import { LayoutChangeEvent, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import Svg, { Line } from 'react-native-svg';
 
+import { CardEyebrow, HomeCard } from '@/components/home/HomeCard';
 import { SpringPressable } from '@/components/SpringPressable';
 import { formatAmount } from '@/lib/currency';
-import { useSafeToSpend } from '@/lib/home/safe-to-spend';
+import { useSafeToSpend, type SafeToSpend } from '@/lib/home/safe-to-spend';
 import { useAppTheme } from '@/lib/stores/theme';
 
 /**
- * "Safe to spend today" — the daily-glance number. Shows a per-day allowance
- * derived from the overall monthly budget. When no budget exists, it becomes a
- * one-line prompt to set one (discovery + activation).
+ * "Safe to spend today" — daily discretionary allowance with a segmented spend
+ * bar (each slice a category's share of the month's spend) over a tick ruler
+ * scaled to the budget cap. Built on the shared HomeCard surface.
  */
 export function SafeToSpendCard() {
   const router = useRouter();
   const C = useAppTheme();
   const s = useSafeToSpend();
 
-  // No budget yet → gentle prompt to unlock the feature.
   if (!s.available) {
     return (
       <Animated.View entering={FadeInDown.duration(400).delay(100)}>
@@ -30,7 +32,7 @@ export function SafeToSpendCard() {
             alignItems: 'center',
             gap: 12,
             backgroundColor: C.surfaceElevated,
-            borderRadius: 16,
+            borderRadius: 18,
             borderWidth: 1,
             borderColor: C.border,
             borderStyle: 'dashed',
@@ -48,59 +50,94 @@ export function SafeToSpendCard() {
   }
 
   const dim = C.textSecondary;
-  const paceColor = s.pace === 'over' ? '#DC2626' : s.pace === 'fast' ? '#B45309' : C.accent;
+  const paceColor = s.pace === 'over' ? '#DC2626' : s.pace === 'fast' ? '#F59E0B' : '#16A34A';
   const paceLabel = s.pace === 'over' ? 'Over budget' : s.pace === 'fast' ? 'Spending fast' : 'On pace';
 
   return (
-    <Animated.View entering={FadeInDown.duration(400).delay(100)}>
-      <SpringPressable
-        onPress={() => router.push('/expenses/budgets' as never)}
-        haptic
-        style={{
-          backgroundColor: C.surfaceElevated,
-          borderRadius: 18,
-          borderWidth: 1,
-          borderColor: C.border,
-          padding: 18,
-          gap: 12,
-          shadowColor: '#0F1419',
-          shadowOpacity: 0.04,
-          shadowRadius: 12,
-          shadowOffset: { width: 0, height: 2 },
-          elevation: 1,
-        }}
-      >
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Wallet size={13} color={dim} />
-            <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 10, letterSpacing: 1.2, color: dim }}>
-              SAFE TO SPEND TODAY
-            </Text>
+    <HomeCard onPress={() => router.push('/expenses/budgets' as never)} delay={100} padding={18} contentStyle={{ gap: 14 }}>
+      <CardEyebrow
+        label="SAFE TO SPEND TODAY"
+        icon={<Wallet size={13} color={dim} />}
+        right={
+          <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, backgroundColor: paceColor + '18' }}>
+            <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 10, color: paceColor }}>{paceLabel}</Text>
           </View>
-          <View
-            style={{
-              paddingHorizontal: 8,
-              paddingVertical: 3,
-              borderRadius: 999,
-              backgroundColor: paceColor + '18',
-            }}
-          >
-            <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 10, color: paceColor }}>
-              {paceLabel}
-            </Text>
-          </View>
-        </View>
+        }
+      />
 
+      <View>
         <Text style={{ fontFamily: 'DMSans_700Bold', fontSize: 34, color: C.textPrimary, letterSpacing: -1 }}>
           {s.overBudget ? formatAmount(0, s.currency) : formatAmount(Math.round(s.safeTodayCents / 100), s.currency)}
         </Text>
-
-        <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 13, color: dim }}>
+        <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 13, color: dim, marginTop: 2 }}>
           {s.overBudget
-            ? `${formatAmount(Math.round(Math.abs(s.remainingCents) / 100), s.currency)} over budget this month`
-            : `${formatAmount(Math.round(s.remainingCents / 100), s.currency)} left · ${s.daysLeft} day${s.daysLeft === 1 ? '' : 's'} to go`}
+            ? `${formatAmount(Math.round(Math.abs(s.remainingCents) / 100), s.currency)} over budget`
+            : `${formatAmount(Math.round(s.remainingCents / 100), s.currency)} left · ${s.daysLeft} day${s.daysLeft === 1 ? '' : 's'}`}
         </Text>
-      </SpringPressable>
-    </Animated.View>
+        {!s.overBudget && s.reservedCents > 0 && (
+          <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 12, color: dim, marginTop: 2, opacity: 0.8 }}>
+            {formatAmount(Math.round(s.reservedCents / 100), s.currency)} set aside for upcoming payments
+          </Text>
+        )}
+      </View>
+
+      <SpendLimitBar data={s} />
+    </HomeCard>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+ * Segmented spend bar over a tick ruler.
+ * ──────────────────────────────────────────────────────────────────── */
+
+function SpendLimitBar({ data }: { data: SafeToSpend }) {
+  const C = useAppTheme();
+  const [width, setWidth] = useState(0);
+  const onLayout = (e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width);
+
+  const { segments, capCents, spentCents, overBudget, currency } = data;
+  const denom = overBudget ? Math.max(1, spentCents) : Math.max(1, capCents);
+
+  const tickCount = width > 0 ? Math.max(12, Math.floor(width / 6)) : 0;
+  const ticks = [];
+  for (let i = 0; i < tickCount; i++) {
+    const x = (i / (tickCount - 1)) * (width - 1) + 0.5;
+    ticks.push(<Line key={i} x1={x} y1={1} x2={x} y2={8} stroke={C.textMuted} strokeOpacity={0.35} strokeWidth={1} />);
+  }
+
+  return (
+    <View style={{ gap: 8 }}>
+      <View
+        style={{
+          height: 14,
+          borderRadius: 7,
+          backgroundColor: C.borderLight,
+          overflow: 'hidden',
+          flexDirection: 'row',
+          gap: 2,
+        }}
+      >
+        {segments.map((seg, i) => (
+          <View key={i} style={{ width: `${Math.max(0, (seg.cents / denom) * 100)}%`, backgroundColor: seg.color }} />
+        ))}
+      </View>
+
+      <View onLayout={onLayout} style={{ height: 9 }}>
+        {width > 0 && (
+          <Svg width={width} height={9}>
+            {ticks}
+          </Svg>
+        )}
+      </View>
+
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+        <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 11, color: C.textMuted }}>
+          {formatAmount(Math.round(spentCents / 100), currency)} spent
+        </Text>
+        <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 11, color: C.textMuted }}>
+          {formatAmount(Math.round(capCents / 100), currency)} cap
+        </Text>
+      </View>
+    </View>
   );
 }
