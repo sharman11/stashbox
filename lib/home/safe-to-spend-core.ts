@@ -12,6 +12,7 @@
 
 import type { CurrencyCode } from '@/lib/currency';
 import { convertCents } from '@/lib/expenses/fx';
+import { detectRecurring, priorMonthKeys } from '@/lib/expenses/insights';
 import type { ExpenseBudget, ExpenseCategory, ExpenseTransaction, LoanPayment, StudentLoan } from '@/lib/types';
 
 export type SpendPace = 'on' | 'fast' | 'over';
@@ -96,11 +97,27 @@ export function computeSafeToSpend(
   segments.sort((a, b) => b.cents - a.cents);
 
   let reservedCents = 0;
+  // (a) Unpaid loan payments still owed this month.
   for (const loan of loans) {
     if (loan.status !== 'active') continue;
     const paid = (paymentsByLoan[loan.id] ?? []).some((p) => p.paymentDate.startsWith(monthKey));
     if (paid) continue;
     reservedCents += convertCents(loan.monthlyPaymentCents, 'USD', ccy, rates);
+  }
+  // (b) Detected recurring charges (subscriptions/bills) that haven't hit yet
+  //     this month — reserve so they don't blow the daily allowance later.
+  const recentMonths = [monthKey, ...priorMonthKeys(monthKey, 3)];
+  const recurring = detectRecurring(transactions, rates, ccy, recentMonths);
+  const seenThisMonth = new Set<string>();
+  for (const t of transactions) {
+    if (t.type !== 'expense') continue;
+    if (!t.occurredOn.startsWith(monthKey) || t.occurredOn > today) continue;
+    const dollar = Math.round(convertCents(t.amountCents, t.currency, ccy, rates) / 100);
+    seenThisMonth.add(`${t.categoryId ?? 'none'}|${dollar}`);
+  }
+  for (const item of recurring.items) {
+    const key = `${item.categoryId ?? 'none'}|${Math.round(item.monthlyCents / 100)}`;
+    if (!seenThisMonth.has(key)) reservedCents += item.monthlyCents;
   }
 
   const remainingCents = overall.limitCents - spentCents;
