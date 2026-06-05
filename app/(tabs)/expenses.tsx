@@ -25,6 +25,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BarChart, type BarDatum } from '@/components/charts/BarChart';
 import { DonutChart, DonutLegend, type DonutSlice } from '@/components/charts/DonutChart';
 import { InsightsCard } from '@/components/expenses/InsightsCard';
+import { SurplusRouterCard } from '@/components/expenses/SurplusRouterCard';
 import { CURRENCIES, formatAmount, type CurrencyCode } from '@/lib/currency';
 import { exportTransactionsToCsv } from '@/lib/expenses/csv-export';
 import { getCachedRates, getFxRates } from '@/lib/expenses/fx';
@@ -259,6 +260,14 @@ export default function ExpensesScreen() {
         <View style={{ paddingHorizontal: 16, marginTop: 16 }}>
           <InsightsCard />
         </View>
+
+        {/* ── Surplus router: send this month's leftover to a loan or goal.
+         *  Only for the current month (a past month's "surplus" isn't actionable). */}
+        {periodAnchor === currentMonthAnchor() && (
+          <View style={{ paddingHorizontal: 16, marginTop: 16 }}>
+            <SurplusRouterCard surplusCents={monthTotals.balanceCents} currency={homeCurrency} />
+          </View>
+        )}
 
         {/* ── Category donut ── */}
         <SectionHeader title="Where it went" actionLabel="Manage" onAction={() => router.push('/expenses/categories')} />
