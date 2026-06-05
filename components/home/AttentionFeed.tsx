@@ -39,7 +39,7 @@ export function AttentionFeed() {
   }
 
   return (
-    <View style={{ gap: 10 }}>
+    <View style={{ gap: 12 }}>
       {items.map((item, i) => (
         <HomeCard
           key={item.id}

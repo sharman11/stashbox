@@ -6,8 +6,8 @@ import { AttentionFeed } from '@/components/home/AttentionFeed';
 import { DebtFreeCard } from '@/components/home/DebtFreeCard';
 import { EmptyHero } from '@/components/home/EmptyHero';
 import { HomeHero } from '@/components/home/HomeHero';
-import { NetWorthCard } from '@/components/home/NetWorthCard';
-import { ProgressCard } from '@/components/home/ProgressCard';
+import { NetWorthCard, useNetWorth } from '@/components/home/NetWorthCard';
+import { ProgressCard, useProgress } from '@/components/home/ProgressCard';
 import { SafeToSpendCard } from '@/components/home/SafeToSpendCard';
 import { useExpenseBudgetsStore } from '@/lib/stores/expense-budgets';
 import { useExpenseCategoriesStore } from '@/lib/stores/expense-categories';
@@ -58,6 +58,14 @@ export default function HomeScreen() {
     }
   }, [loans, loadPayments]);
 
+  // Presence of the two compact stat cards drives the layout below: both
+  // present → they sit side by side in a 2-col row; only one → it spans full
+  // width. (Same hooks the cards use internally, so no duplicate logic.)
+  const netWorth = useNetWorth();
+  const progress = useProgress();
+  const hasNetWorth = netWorth.available;
+  const hasProgress = progress.hasAny;
+
   const hasAnyActiveGoal = useMemo(
     () => moneyboxes.some((b) => b.status === 'active'),
     [moneyboxes],
@@ -82,15 +90,30 @@ export default function HomeScreen() {
         {/* ── Full-bleed hero (safe-area top is owned by the gradient) ── */}
         {showEmptyHero ? <EmptyHero /> : <HomeHero />}
 
-        {/* ── Below the hero:
-         *  ① what needs attention → ② safe to spend (daily) → ③ debt-free optimizer */}
+        {/* ── Below the hero, ordered by usefulness/urgency:
+         *  ① what needs attention → ② safe to spend (daily) → ③ debt-free
+         *  optimizer → ④ net worth + progress, paired into a 2-col row to cut
+         *  the scroll (each spans full width if it's the only one present). */}
         {!showEmptyHero && (
-          <View style={{ paddingHorizontal: 16, paddingTop: 30, gap: 20 }}>
+          <View style={{ paddingHorizontal: 16, paddingTop: 38, gap: 12 }}>
             <AttentionFeed />
             <SafeToSpendCard />
             <DebtFreeCard />
-            <NetWorthCard />
-            <ProgressCard />
+            {hasNetWorth && hasProgress ? (
+              <View style={{ flexDirection: 'row', gap: 12, alignItems: 'stretch' }}>
+                <View style={{ flex: 1 }}>
+                  <NetWorthCard half />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <ProgressCard half />
+                </View>
+              </View>
+            ) : (
+              <>
+                <NetWorthCard />
+                <ProgressCard />
+              </>
+            )}
           </View>
         )}
       </ScrollView>

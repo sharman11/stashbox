@@ -15,13 +15,9 @@ import { useAppTheme } from '@/lib/stores/theme';
 const SAVINGS_COLOR = '#16A34A';
 const DEBT_COLOR = '#DC2626';
 
-/**
- * Net-worth trajectory: savings − debt as one number, with a savings-vs-debt
- * split bar and a projection to net-positive. Shown to all (it's the user's
- * own position); renders only when there's savings or debt to show.
- */
-export function NetWorthCard() {
-  const C = useAppTheme();
+/** Shared compute hook — used by the card to render and by the home layout to
+ *  decide whether this card is present (so it can be paired into a 2-col row). */
+export function useNetWorth() {
   const moneyboxes = useMoneyboxesStore((s) => s.moneyboxes);
   const cellsByMoneybox = useMoneyboxesStore((s) => s.cellsByMoneybox);
   const loans = useLoansStore((s) => s.loans);
@@ -39,10 +35,29 @@ export function NetWorthCard() {
   }, []);
 
   const ccy = profile?.defaultCurrency ?? 'USD';
-  const nw = useMemo(
-    () => computeNetWorth(moneyboxes, cellsByMoneybox, loans, getCachedRates(), ccy, new Date()),
+  return useMemo(
+    () => ({
+      ...computeNetWorth(moneyboxes, cellsByMoneybox, loans, getCachedRates(), ccy, new Date()),
+      ccy,
+    }),
     [moneyboxes, cellsByMoneybox, loans, ccy],
   );
+}
+
+interface NetWorthCardProps {
+  /** Render compact for a half-width 2-column slot. */
+  half?: boolean;
+}
+
+/**
+ * Net-worth trajectory: savings − debt as one number, with a savings-vs-debt
+ * split bar and a projection to net-positive. Shown to all (it's the user's
+ * own position); renders only when there's savings or debt to show.
+ */
+export function NetWorthCard({ half = false }: NetWorthCardProps) {
+  const C = useAppTheme();
+  const nw = useNetWorth();
+  const ccy = nw.ccy;
 
   if (!nw.available) return null;
 
@@ -63,22 +78,27 @@ export function NetWorthCard() {
       <CardEyebrow label="NET WORTH" icon={<Scale size={13} color={C.accent} />} />
 
       <View>
-        <Text style={{ fontFamily: 'DMSans_700Bold', fontSize: 32, color: negative ? DEBT_COLOR : C.textPrimary, letterSpacing: -1 }}>
+        <Text
+          numberOfLines={1}
+          adjustsFontSizeToFit={half}
+          minimumFontScale={0.6}
+          style={{ fontFamily: 'DMSans_700Bold', fontSize: half ? 26 : 32, color: negative ? DEBT_COLOR : C.textPrimary, letterSpacing: -1 }}
+        >
           {negative ? '−' : ''}
           {formatAmount(Math.round(Math.abs(nw.netCents) / 100), ccy)}
         </Text>
-        <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 13, color: C.textSecondary, marginTop: 2 }}>{sub}</Text>
+        <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: half ? 12 : 13, color: C.textSecondary, marginTop: 2 }}>{sub}</Text>
       </View>
 
       {/* Savings vs debt split */}
       <View style={{ height: 10, borderRadius: 5, backgroundColor: DEBT_COLOR, overflow: 'hidden', flexDirection: 'row' }}>
         <View style={{ width: `${savingsPct}%`, backgroundColor: SAVINGS_COLOR }} />
       </View>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-        <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 11, color: SAVINGS_COLOR }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 6 }}>
+        <Text numberOfLines={1} style={{ fontFamily: 'DMSans_500Medium', fontSize: half ? 10 : 11, color: SAVINGS_COLOR }}>
           {formatAmount(Math.round(nw.savingsCents / 100), ccy)} saved
         </Text>
-        <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 11, color: DEBT_COLOR }}>
+        <Text numberOfLines={1} style={{ fontFamily: 'DMSans_500Medium', fontSize: half ? 10 : 11, color: DEBT_COLOR }}>
           {formatAmount(Math.round(nw.debtCents / 100), ccy)} debt
         </Text>
       </View>

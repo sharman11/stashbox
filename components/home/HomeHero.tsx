@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Settings } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { GestureResponderEvent, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
-import { FlatList, Image, ImageBackground, Text, View, useWindowDimensions } from 'react-native';
+import { FlatList, Image, ImageBackground, Text, View, useWindowDimensions, type ImageSourcePropType } from 'react-native';
 import Animated, {
   FadeIn,
   interpolate,
@@ -24,7 +24,7 @@ import { useAvatarStore } from '@/lib/stores/avatar';
 import { useExpenseTransactionsStore } from '@/lib/stores/expense-transactions';
 import { useLoansStore } from '@/lib/stores/loans';
 import { useMoneyboxesStore } from '@/lib/stores/moneyboxes';
-import { usePersonalizationStore } from '@/lib/stores/personalization';
+import { usePersonalizationStore, type HeroBackground } from '@/lib/stores/personalization';
 import { useProfileStore } from '@/lib/stores/profile';
 import { useAppTheme } from '@/lib/stores/theme';
 import { getTheme } from '@/lib/theme';
@@ -33,6 +33,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const CHART_HEIGHT = 170;
 const CHART_PAD_BOTTOM = 26;
 const CHART_PAD_TOP = 12;
+
+// Image-backed hero backgrounds. Any key present here renders as a full-bleed
+// ImageBackground; anything else (i.e. 'default') falls back to the brand
+// gradient. require() needs static literals, so these live at module scope.
+const HERO_IMAGE_SOURCES: Partial<Record<HeroBackground, ImageSourcePropType>> = {
+  'painted-frame': require('@/assets/home/hero-frame-bg.webp'),
+  meadow: require('@/assets/home/hero-meadow-bg.webp'),
+  'leaf-frame': require('@/assets/home/hero-leaf-frame-bg.webp'),
+  'forest-peek': require('@/assets/home/hero-forest-peek-bg.webp'),
+};
 
 type HeroView = 'stash' | 'spend' | 'owe';
 
@@ -101,6 +111,18 @@ function shortMonthDay(ymd: string): string {
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const mi = Number(m) - 1;
   return `${months[mi] ?? ''} ${Number(d)}`;
+}
+
+/** Blend a #RRGGBB color toward white by `amt` (0–1) so chart lines read
+ *  brighter/more luminous against the dark hero without getting thicker. */
+function brighten(hex: string, amt = 0.3): string {
+  const m = hex.replace('#', '');
+  if (m.length !== 6) return hex;
+  const mix = (c: number) => Math.round(c + (255 - c) * amt);
+  const r = mix(parseInt(m.slice(0, 2), 16));
+  const g = mix(parseInt(m.slice(2, 4), 16));
+  const b = mix(parseInt(m.slice(4, 6), 16));
+  return `#${[r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
 }
 
 function niceCeil(n: number): number {
@@ -319,7 +341,7 @@ export function HomeHero() {
         >
           <Image
             source={require('@/assets/home/hero-texture.webp')}
-            style={{ width: '100%', height: '100%', opacity: 0.5 }}
+            style={{ width: '100%', height: '100%', opacity: 0.3 }}
             resizeMode="cover"
           />
         </View>
@@ -357,13 +379,10 @@ export function HomeHero() {
       </>
     ) : null;
 
-  const HeroShell = (heroBackground === 'painted-frame'
+  const heroImageSource = HERO_IMAGE_SOURCES[heroBackground];
+  const HeroShell = (heroImageSource
     ? ({ children }: { children: React.ReactNode }) => (
-        <ImageBackground
-          source={require('@/assets/home/hero-frame-bg.webp')}
-          resizeMode="cover"
-          style={heroShellStyle}
-        >
+        <ImageBackground source={heroImageSource} resizeMode="cover" style={heroShellStyle}>
           {children}
         </ImageBackground>
       )
@@ -383,6 +402,21 @@ export function HomeHero() {
     <View style={{ backgroundColor: C.heroTop }}>
       <HeroShell>
         {decorativeLayers}
+
+        {/* Option 3 — overall mute: a soft dark wash that calms the entire hero
+         *  background (gradient, texture, or painted frame) so the chart and
+         *  text sit on a quieter base. */}
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.15)',
+          }}
+        />
 
         {/* Top chrome */}
         <View
@@ -674,7 +708,7 @@ function HeroPage({ meta, range, data, yMax, window, days, datePositions, screen
         >
           {series.map((s) => (
             <View key={s.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: s.color }} />
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: brighten(s.color) }} />
               <Text
                 numberOfLines={1}
                 style={{
@@ -889,9 +923,9 @@ function InteractiveChart({
       <Svg width={chartOuterWidth} height={CHART_HEIGHT}>
         <Defs>
           <SvgGradient id="loanArea" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor="#B2EEB8" stopOpacity={0.28} />
-            <Stop offset="0.6" stopColor="#7DF3C2" stopOpacity={0.08} />
-            <Stop offset="1" stopColor="#7DF3C2" stopOpacity={0} />
+            <Stop offset="0" stopColor={brighten('#B2EEB8')} stopOpacity={0.28} />
+            <Stop offset="0.6" stopColor={brighten('#7DF3C2')} stopOpacity={0.08} />
+            <Stop offset="1" stopColor={brighten('#7DF3C2')} stopOpacity={0} />
           </SvgGradient>
         </Defs>
 
@@ -905,7 +939,7 @@ function InteractiveChart({
               <Polyline
                 points={pts}
                 fill="none"
-                stroke={s.color}
+                stroke={brighten(s.color)}
                 strokeOpacity={0.22}
                 strokeWidth={6}
                 strokeLinejoin="round"
@@ -914,7 +948,7 @@ function InteractiveChart({
               <Polyline
                 points={pts}
                 fill="none"
-                stroke={s.color}
+                stroke={brighten(s.color)}
                 strokeWidth={2.5}
                 strokeLinejoin="round"
                 strokeLinecap="round"
@@ -933,12 +967,12 @@ function InteractiveChart({
                 <G key={`endpt-${s.id}`}>
                   <Path
                     d={`M ${lx} ${ly} m -8 0 a 8 8 0 1 0 16 0 a 8 8 0 1 0 -16 0`}
-                    fill={s.color}
+                    fill={brighten(s.color)}
                     fillOpacity={0.18}
                   />
                   <Path
                     d={`M ${lx} ${ly} m -3.5 0 a 3.5 3.5 0 1 0 7 0 a 3.5 3.5 0 1 0 -7 0`}
-                    fill={s.color}
+                    fill={brighten(s.color)}
                   />
                 </G>
               );
@@ -964,12 +998,12 @@ function InteractiveChart({
                 <G key={`cur-${s.id}`}>
                   <Path
                     d={`M ${cX} ${y} m -7 0 a 7 7 0 1 0 14 0 a 7 7 0 1 0 -14 0`}
-                    fill={s.color}
+                    fill={brighten(s.color)}
                     fillOpacity={0.25}
                   />
                   <Path
                     d={`M ${cX} ${y} m -3.5 0 a 3.5 3.5 0 1 0 7 0 a 3.5 3.5 0 1 0 -7 0`}
-                    fill={s.color}
+                    fill={brighten(s.color)}
                   />
                 </G>
               );

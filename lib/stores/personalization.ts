@@ -3,8 +3,16 @@ import { create } from 'zustand';
 
 /** The hero background the user has chosen for the home tab.
  *  `default` = brand gradient + texture + mascot peek (current look).
- *  `painted-frame` = the painted edge-frame illustration. */
-export type HeroBackground = 'default' | 'painted-frame';
+ *  `painted-frame` = the painted edge-frame illustration.
+ *  `meadow` = full squirrel-meadow scene illustration.
+ *  `leaf-frame` = soft green leaf vignette frame.
+ *  `forest-peek` = forest leaf frame with a peeking squirrel. */
+export type HeroBackground =
+  | 'default'
+  | 'painted-frame'
+  | 'meadow'
+  | 'leaf-frame'
+  | 'forest-peek';
 
 const STORAGE_KEY = 'stashbox_personalization_v1';
 

@@ -21,6 +21,7 @@ import {
 } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
+  Image,
   KeyboardAvoidingView,
   Linking,
   Platform,
@@ -42,7 +43,7 @@ import type { CurrencyCode } from '@/lib/currency';
 import { requestAndRegisterNotifications, unregisterNotifications } from '@/lib/push';
 import { useAdsStore } from '@/lib/stores/ads';
 import { useMoneyboxesStore } from '@/lib/stores/moneyboxes';
-import { usePersonalizationStore } from '@/lib/stores/personalization';
+import { usePersonalizationStore, type HeroBackground } from '@/lib/stores/personalization';
 import { useProfileStore } from '@/lib/stores/profile';
 import { useSessionStore } from '@/lib/stores/session';
 import { useAppTheme, useThemeStore } from '@/lib/stores/theme';
@@ -621,6 +622,21 @@ function SwitchRow({ icon, tint, title, subtitle, value, onChange }: SwitchRowPr
  * Personalization section rows
  * ──────────────────────────────────────────────────────────────────── */
 
+interface HeroBgOption {
+  key: HeroBackground;
+  label: string;
+  /** Static thumbnail; omitted for the gradient `default`. */
+  source?: number;
+}
+
+const HERO_BG_OPTIONS: readonly HeroBgOption[] = [
+  { key: 'default', label: 'Gradient' },
+  { key: 'painted-frame', label: 'Painted', source: require('@/assets/home/hero-frame-bg.webp') },
+  { key: 'meadow', label: 'Meadow', source: require('@/assets/home/hero-meadow-bg.webp') },
+  { key: 'leaf-frame', label: 'Leaf', source: require('@/assets/home/hero-leaf-frame-bg.webp') },
+  { key: 'forest-peek', label: 'Forest', source: require('@/assets/home/hero-forest-peek-bg.webp') },
+];
+
 function PersonalizationRows() {
   const C = useAppTheme();
   const heroBackground = usePersonalizationStore((s) => s.heroBackground);
@@ -631,21 +647,13 @@ function PersonalizationRows() {
     hydrate();
   }, [hydrate]);
 
-  const subtitle = heroBackground === 'painted-frame' ? 'Painted forest frame' : 'Default — gradient + mascot';
-
   return (
     <>
-      <SpringPressable
-        onPress={() =>
-          setHeroBackground(heroBackground === 'default' ? 'painted-frame' : 'default')
-        }
-        haptic
-        style={rowStyle}
-      >
+      <View style={[rowStyle, { alignItems: 'flex-start' }]}>
         <IconBadge tint={C.accentLight}>
           <Wallpaper size={16} color={C.accent} />
         </IconBadge>
-        <View style={{ flex: 1, marginRight: 12 }}>
+        <View style={{ flex: 1 }}>
           <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 15, color: C.textPrimary }}>
             Hero background
           </Text>
@@ -655,13 +663,67 @@ function PersonalizationRows() {
               fontSize: 12,
               color: C.textMuted,
               marginTop: 2,
+              marginBottom: 12,
             }}
           >
-            {subtitle}
+            Pick the look for your home header
           </Text>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 10, paddingRight: 4 }}
+          >
+            {HERO_BG_OPTIONS.map((opt) => {
+              const selected = heroBackground === opt.key;
+              return (
+                <SpringPressable
+                  key={opt.key}
+                  onPress={() => setHeroBackground(opt.key)}
+                  haptic
+                  style={{ alignItems: 'center', gap: 6 }}
+                >
+                  <View
+                    style={{
+                      width: 58,
+                      height: 86,
+                      borderRadius: 12,
+                      overflow: 'hidden',
+                      borderWidth: 2,
+                      borderColor: selected ? C.accent : C.border,
+                    }}
+                  >
+                    {opt.source ? (
+                      <Image
+                        source={opt.source}
+                        style={{ width: '100%', height: '100%' }}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <LinearGradient
+                        colors={['#06291F', '#145A42', '#1A8A66', '#2A9B72']}
+                        locations={[0, 0.35, 0.75, 1]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={{ width: '100%', height: '100%' }}
+                      />
+                    )}
+                  </View>
+                  <Text
+                    style={{
+                      fontFamily: selected ? 'DMSans_600SemiBold' : 'DMSans_400Regular',
+                      fontSize: 11,
+                      color: selected ? C.accent : C.textMuted,
+                    }}
+                  >
+                    {opt.label}
+                  </Text>
+                </SpringPressable>
+              );
+            })}
+          </ScrollView>
         </View>
-        <ChevronRight size={18} color={C.textFaint} />
-      </SpringPressable>
+      </View>
 
       <Divider />
 

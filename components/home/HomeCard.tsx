@@ -48,11 +48,6 @@ export function HomeCard({ children, onPress, accentEdge, delay = 0, padding = 1
       style={{
         borderRadius: HOME_CARD_RADIUS,
         backgroundColor: C.surfaceElevated,
-        shadowColor: '#0F1419',
-        shadowOpacity: 0.04,
-        shadowRadius: 12,
-        shadowOffset: { width: 0, height: 2 },
-        elevation: 1,
       }}
     >
       {onPress ? (
