@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
+import { LoanSuggestionsCard } from '@/components/loans/LoanSuggestionsCard';
 import { PayoffPlanCard } from '@/components/loans/PayoffPlanCard';
 import { SpringPressable } from '@/components/SpringPressable';
 import { formatApr, formatCents, formatDuration, projectFromLoan } from '@/lib/loans/math';
@@ -253,6 +254,13 @@ export default function LoansScreen() {
         {activeLoans.length > 0 && (
           <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
             <PayoffPlanCard />
+          </View>
+        )}
+
+        {/* Smart suggestions — start a booster, round up, apply a surplus */}
+        {activeLoans.length > 0 && (
+          <View style={{ paddingHorizontal: 20, marginTop: 16 }}>
+            <LoanSuggestionsCard />
           </View>
         )}
 
