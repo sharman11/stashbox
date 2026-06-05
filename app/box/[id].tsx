@@ -15,6 +15,7 @@ import { EditMoneyboxModal } from '@/components/EditMoneyboxModal';
 import { MilestoneOverlay } from '@/components/MilestoneOverlay';
 import type { MilestoneKind } from '@/components/MilestoneOverlay';
 import { MilestoneToast } from '@/components/MilestoneToast';
+import { PayoffBoosterCard } from '@/components/loans/PayoffBoosterCard';
 import { MoneyboxGrid } from '@/components/MoneyboxGrid';
 import { ProgressBar } from '@/components/ProgressBar';
 import { ProgressRing } from '@/components/ProgressRing';
@@ -600,6 +601,9 @@ export default function MoneyboxDetailScreen() {
                   You saved {formatAmount(moneybox.goalAmount, moneybox.currency)} - every cell filled.
                 </Text>
               </View>
+              {/* If this was a "Payoff Booster" vault, suggest applying it to the
+               *  linked loan (renders nothing otherwise). */}
+              <PayoffBoosterCard moneybox={moneybox} savedMajor={saved} />
               <View style={{ alignItems: 'center', marginBottom: 16 }}>
                 <ShareCard
                   moneybox={moneybox}

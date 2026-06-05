@@ -22,16 +22,25 @@ import { useAppTheme } from '@/lib/stores/theme';
 export default function LogPaymentScreen() {
   const C = useAppTheme();
   const router = useRouter();
-  const { loanId } = useLocalSearchParams<{ loanId: string }>();
+  // `amount`, `extra`, `sourceMoneyboxId` and `note` let other features
+  // (a completed Payoff Booster vault, an expense-surplus nudge, a loan
+  // suggestion) route here pre-filled — "suggest, you log it". All optional.
+  const { loanId, amount, extra, sourceMoneyboxId, note } = useLocalSearchParams<{
+    loanId: string;
+    amount?: string;
+    extra?: string;
+    sourceMoneyboxId?: string;
+    note?: string;
+  }>();
   const { loans, logPayment } = useLoansStore();
 
   const loan = useMemo(() => loans.find((l) => l.id === loanId), [loans, loanId]);
 
   const [amountText, setAmountText] = useState(
-    loan ? (loan.monthlyPaymentCents / 100).toFixed(2) : '',
+    amount ?? (loan ? (loan.monthlyPaymentCents / 100).toFixed(2) : ''),
   );
   const [date, setDate] = useState(todayYmd());
-  const [isExtra, setIsExtra] = useState(false);
+  const [isExtra, setIsExtra] = useState(extra === '1' || extra === 'true');
   const [submitting, setSubmitting] = useState(false);
 
   if (!loan) {
@@ -65,6 +74,8 @@ export default function LogPaymentScreen() {
         paymentDate: date,
         amountCents,
         isExtra,
+        sourceMoneyboxId: sourceMoneyboxId ?? null,
+        note: note ?? null,
       });
       router.back();
     } catch (err: unknown) {

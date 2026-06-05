@@ -7,7 +7,7 @@ function box(over: Partial<Moneybox>): Moneybox {
   return {
     id: 'b1', userId: 'u1', name: 'Vacation', icon: '✈️', stashSpot: null,
     theme: 'emerald' as Moneybox['theme'], currency: 'USD', goalAmount: 1000, targetDays: 100,
-    gridRows: 10, gridCols: 10, status: 'active', createdAt: '2026-05-02', completedAt: null,
+    gridRows: 10, gridCols: 10, status: 'active', linkedLoanId: null, createdAt: '2026-05-02', completedAt: null,
     milestonesTriggered: [], ...over,
   };
 }

@@ -65,6 +65,10 @@ export interface Moneybox {
   gridRows: number;
   gridCols: number;
   status: MoneyboxStatus;
+  /** When set, this vault is a "Payoff Booster" for the given student loan.
+   *  On completion the app suggests logging its total as an extra principal
+   *  payment (it never moves money itself). Null for ordinary goals. */
+  linkedLoanId: string | null;
   createdAt: string;
   completedAt: string | null;
   /** Milestone percentages (25/50/75/100) that have already fired for this vault.

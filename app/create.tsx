@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
   AlertCircle,
@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronUp,
+  Landmark,
   Lock,
   MapPin,
   Palette,
@@ -58,6 +59,8 @@ import {
 } from '@/lib/currency';
 import type { CurrencyCode } from '@/lib/currency';
 import { MAX_COLS, MIN_COLS, suggestCols } from '@/lib/grid';
+import { formatCents } from '@/lib/loans/math';
+import { useLoansStore } from '@/lib/stores/loans';
 import { useMoneyboxesStore } from '@/lib/stores/moneyboxes';
 import { useProfileStore } from '@/lib/stores/profile';
 import { useSessionStore } from '@/lib/stores/session';
@@ -214,9 +217,16 @@ function StepIndicator({ current }: { current: number }) {
 export default function CreateScreen() {
   const C = useAppTheme();
   const router = useRouter();
+  // Optional deep-link params: a loan-side "Start a Payoff Booster" suggestion
+  // routes here pre-linked (and may pre-fill the name/goal). All optional.
+  const params = useLocalSearchParams<{ linkedLoanId?: string; name?: string; goal?: string }>();
   const { userId } = useSessionStore();
   const { profile } = useProfileStore();
   const { moneyboxes, create } = useMoneyboxesStore();
+  const loans = useLoansStore((s) => s.loans);
+  const loadLoans = useLoansStore((s) => s.loadAll);
+
+  const activeLoans = useMemo(() => loans.filter((l) => l.status === 'active'), [loans]);
 
   const bonusCurrency = useLimitsStore((s) => s.bonusCurrency);
   const grantBonus = useLimitsStore((s) => s.grantBonus);
@@ -235,13 +245,17 @@ export default function CreateScreen() {
   const [unlockInFlight, setUnlockInFlight] = useState<CurrencyCode | null>(null);
 
   const [step, setStep] = useState<0 | 1 | 2 | 3 | 4>(0);
-  const [name, setName] = useState('');
-  const [icon, setIcon] = useState<string>('💰');
+  const [name, setName] = useState(params.name ? String(params.name).slice(0, NAME_MAX) : '');
+  // Optional "Payoff Booster" link to a student loan. Seeded from the deep-link
+  // param; the user can also pick/clear it on the Goal step.
+  const [linkedLoanId, setLinkedLoanId] = useState<string | null>(params.linkedLoanId ?? null);
+  const [showLoanLink, setShowLoanLink] = useState<boolean>(Boolean(params.linkedLoanId));
+  const [icon, setIcon] = useState<string>(params.linkedLoanId ? '🎯' : '💰');
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [stashSpotId, setStashSpotId] = useState<string>(DEFAULT_STASH_SPOT_ID);
   const [stashPickerOpen, setStashPickerOpen] = useState(false);
   const [currency, setCurrencyRaw] = useState<CurrencyCode>(profile?.defaultCurrency ?? 'USD');
-  const [goalText, setGoalText] = useState('');
+  const [goalText, setGoalText] = useState(params.goal ? String(params.goal).replace(/[^0-9]/g, '') : '');
   const [daysText, setDaysText] = useState('');
   const [showAllCurrencies, setShowAllCurrencies] = useState(false);
   const [showAdvancedTimeline, setShowAdvancedTimeline] = useState(false);
@@ -437,6 +451,11 @@ export default function CreateScreen() {
 
   const adsReady = useAdsStore((s) => s.ready);
 
+  // Load loans so the optional "Payoff Booster" link can list them.
+  useEffect(() => {
+    if (userId) loadLoans(userId);
+  }, [userId, loadLoans]);
+
   useEffect(() => {
     // Wait for the SDK to finish initializing before requesting ads.
     if (!adsReady) return;
@@ -517,6 +536,8 @@ export default function CreateScreen() {
         targetDays: days,
         gridCols: activeCols,
         notes,
+        // Only persist the link if the chosen loan is still active.
+        linkedLoanId: activeLoans.some((l) => l.id === linkedLoanId) ? linkedLoanId : null,
       });
       if (interstitialReady.current) {
         try {
@@ -1024,6 +1045,89 @@ export default function CreateScreen() {
                 </View>
               </View>
 
+              {/* Optional: turn this into a "Payoff Booster" for a loan.
+               *  Collapsed by default (mirrors the timeline's advanced toggle);
+               *  only shown when the user actually has active loans. */}
+              {activeLoans.length > 0 && (
+                <View>
+                  <SpringPressable
+                    onPress={() => setShowLoanLink((v) => !v)}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
+                  >
+                    <Landmark size={14} color={C.accent} />
+                    <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 13, color: C.accent }}>
+                      {linkedLoanId ? 'Linked to a loan' : 'Paying off a loan? Link this vault'}
+                    </Text>
+                    {showLoanLink ? (
+                      <ChevronUp size={12} color={C.accent} />
+                    ) : (
+                      <ChevronDown size={12} color={C.accent} />
+                    )}
+                  </SpringPressable>
+
+                  {showLoanLink && (
+                    <View style={{ marginTop: 10, gap: 8 }}>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                        {activeLoans.map((l) => {
+                          const selected = linkedLoanId === l.id;
+                          return (
+                            <Pressable
+                              key={l.id}
+                              onPress={() => setLinkedLoanId(selected ? null : l.id)}
+                              style={{
+                                backgroundColor: selected ? C.accent : C.surface,
+                                borderRadius: 12,
+                                paddingHorizontal: 12,
+                                paddingVertical: 10,
+                                borderWidth: 1,
+                                borderColor: selected ? C.accent : C.border,
+                                maxWidth: '100%',
+                              }}
+                            >
+                              <Text
+                                numberOfLines={1}
+                                style={{
+                                  fontFamily: 'DMSans_600SemiBold',
+                                  fontSize: 13,
+                                  color: selected ? '#FFFFFF' : C.textPrimary,
+                                }}
+                              >
+                                {l.nickname}
+                              </Text>
+                              <Text
+                                numberOfLines={1}
+                                style={{
+                                  fontFamily: 'DMSans_400Regular',
+                                  fontSize: 11,
+                                  color: selected ? 'rgba(255,255,255,0.85)' : C.textMuted,
+                                  marginTop: 1,
+                                }}
+                              >
+                                {formatCents(l.currentBalanceCents)} left
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                      {linkedLoanId && (
+                        <Text
+                          style={{
+                            fontFamily: 'DMSans_400Regular',
+                            fontSize: 12,
+                            color: C.textMuted,
+                            lineHeight: 18,
+                          }}
+                        >
+                          When this vault fills up, we&apos;ll suggest applying it as an
+                          extra payment — paying the loan off faster. You stay in control;
+                          nothing moves on its own.
+                        </Text>
+                      )}
+                    </View>
+                  )}
+                </View>
+              )}
+
             </View>
           )}
 
@@ -1260,6 +1364,23 @@ export default function CreateScreen() {
                   >
                     {formatAmount(goal, currency)} · {days} days
                   </Text>
+                  {(() => {
+                    const linked = activeLoans.find((l) => l.id === linkedLoanId);
+                    if (!linked) return null;
+                    return (
+                      <Text
+                        style={{
+                          fontFamily: 'DMSans_500Medium',
+                          fontSize: 12,
+                          color: C.accent,
+                          marginTop: 3,
+                        }}
+                        numberOfLines={1}
+                      >
+                        🎯 Booster for {linked.nickname}
+                      </Text>
+                    );
+                  })()}
                 </View>
               </View>
 

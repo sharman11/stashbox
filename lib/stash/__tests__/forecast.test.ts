@@ -15,6 +15,7 @@ function box(over: Partial<Moneybox>): Moneybox {
     gridRows: 10,
     gridCols: 10,
     status: 'active',
+    linkedLoanId: null,
     createdAt: '2026-05-02',
     completedAt: null,
     milestonesTriggered: [],
