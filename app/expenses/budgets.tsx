@@ -1,3 +1,4 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Check, ChevronLeft, Pencil, Plus, Trash2 } from 'lucide-react-native';
@@ -472,22 +473,33 @@ function BudgetRow(props: BudgetRowProps) {
             onPress={handleSavePress}
             disabled={justSaved}
             haptic
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 4,
-              minWidth: 78,
-              backgroundColor: justSaved ? '#16A34A' : C.accent,
-              paddingHorizontal: 14,
-              paddingVertical: 10,
-              borderRadius: 10,
-            }}
+            style={{ borderRadius: 10 }}
           >
-            {justSaved && <Check size={14} color="#FFFFFF" strokeWidth={2.5} />}
-            <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 13, color: '#FFFFFF' }}>
-              {justSaved ? 'Saved' : 'Save'}
-            </Text>
+            <LinearGradient
+              colors={
+                justSaved
+                  ? ['#16A34A', '#16A34A', '#16A34A']
+                  : [C.heroTop, C.heroMid, C.heroBot]
+              }
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 4,
+                minWidth: 78,
+                paddingHorizontal: 14,
+                paddingVertical: 10,
+                borderRadius: 10,
+                overflow: 'hidden',
+              }}
+            >
+              {justSaved && <Check size={14} color="#FFFFFF" strokeWidth={2.5} />}
+              <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 13, color: '#FFFFFF' }}>
+                {justSaved ? 'Saved' : 'Save'}
+              </Text>
+            </LinearGradient>
           </SpringPressable>
         </View>
       )}

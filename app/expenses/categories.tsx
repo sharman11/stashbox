@@ -1,3 +1,4 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
@@ -265,22 +266,33 @@ export default function CategoriesScreen() {
                 onPress={onAdd}
                 disabled={!name.trim()}
                 haptic
-                style={{
-                  backgroundColor: name.trim() ? C.buttonPrimaryBg : C.borderLight,
-                  borderRadius: 12,
-                  paddingVertical: 12,
-                  alignItems: 'center',
-                }}
+                style={{ borderRadius: 12 }}
               >
-                <Text
+                <LinearGradient
+                  colors={
+                    name.trim()
+                      ? [C.heroTop, C.heroMid, C.heroBot]
+                      : [C.borderLight, C.borderLight, C.borderLight]
+                  }
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0.5, y: 1 }}
                   style={{
-                    fontFamily: 'DMSans_700Bold',
-                    fontSize: 14,
-                    color: name.trim() ? C.buttonPrimaryText : C.textMuted,
+                    borderRadius: 12,
+                    overflow: 'hidden',
+                    paddingVertical: 12,
+                    alignItems: 'center',
                   }}
                 >
-                  Add category
-                </Text>
+                  <Text
+                    style={{
+                      fontFamily: 'DMSans_700Bold',
+                      fontSize: 14,
+                      color: name.trim() ? '#FFFFFF' : C.textMuted,
+                    }}
+                  >
+                    Add category
+                  </Text>
+                </LinearGradient>
               </SpringPressable>
             </View>
           )}
@@ -538,23 +550,33 @@ function CategoryGroup({
                       onPress={commitEdit}
                       disabled={!draftName.trim()}
                       haptic
-                      style={{
-                        flex: 1,
-                        backgroundColor: draftName.trim() ? C.accent : C.borderLight,
-                        borderRadius: 10,
-                        paddingVertical: 11,
-                        alignItems: 'center',
-                      }}
+                      style={{ flex: 1, borderRadius: 10 }}
                     >
-                      <Text
+                      <LinearGradient
+                        colors={
+                          draftName.trim()
+                            ? [C.heroTop, C.heroMid, C.heroBot]
+                            : [C.borderLight, C.borderLight, C.borderLight]
+                        }
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 0.5, y: 1 }}
                         style={{
-                          fontFamily: 'DMSans_600SemiBold',
-                          fontSize: 13,
-                          color: draftName.trim() ? '#FFFFFF' : C.textMuted,
+                          borderRadius: 10,
+                          overflow: 'hidden',
+                          paddingVertical: 11,
+                          alignItems: 'center',
                         }}
                       >
-                        Save
-                      </Text>
+                        <Text
+                          style={{
+                            fontFamily: 'DMSans_600SemiBold',
+                            fontSize: 13,
+                            color: draftName.trim() ? '#FFFFFF' : C.textMuted,
+                          }}
+                        >
+                          Save
+                        </Text>
+                      </LinearGradient>
                     </SpringPressable>
                     <Pressable
                       onPress={() => setEditingId(null)}

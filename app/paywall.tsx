@@ -1,3 +1,4 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Check, Sparkles, X } from 'lucide-react-native';
@@ -238,26 +239,38 @@ export default function PaywallScreen() {
             onPress={onSubscribe}
             haptic
             disabled={busy || (!IAP_DUMMY && !selected)}
-            style={{
-              backgroundColor: IAP_DUMMY || selected ? C.accent : C.border,
-              borderRadius: 999,
-              paddingVertical: 16,
-              alignItems: 'center',
-              opacity: busy ? 0.7 : 1,
-            }}
+            style={{ borderRadius: 999, opacity: busy ? 0.7 : 1 }}
           >
-            {busy ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={{ fontFamily: 'DMSans_700Bold', fontSize: 16, color: '#FFFFFF' }}>
-                {/* Price on the button — "Continue" hides the commitment. */}
-                {IAP_DUMMY
-                  ? 'Activate Stashbox+ (dev)'
-                  : selected
-                    ? `Subscribe for ${selected.product.priceString}`
-                    : 'Continue'}
-              </Text>
-            )}
+            {/* Primary gradient when actionable — one button language
+             *  app-wide. */}
+            <LinearGradient
+              colors={
+                IAP_DUMMY || selected
+                  ? [C.heroTop, C.heroMid, C.heroBot]
+                  : [C.border, C.border, C.border]
+              }
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={{
+                borderRadius: 999,
+                overflow: 'hidden',
+                paddingVertical: 16,
+                alignItems: 'center',
+              }}
+            >
+              {busy ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={{ fontFamily: 'DMSans_700Bold', fontSize: 16, color: '#FFFFFF' }}>
+                  {/* Price on the button — "Continue" hides the commitment. */}
+                  {IAP_DUMMY
+                    ? 'Activate Stashbox+ (dev)'
+                    : selected
+                      ? `Subscribe for ${selected.product.priceString}`
+                      : 'Continue'}
+                </Text>
+              )}
+            </LinearGradient>
           </SpringPressable>
         )}
         {/* Subscription terms — store review requires these near the buy

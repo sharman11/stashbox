@@ -1,3 +1,4 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-native';
@@ -135,24 +136,26 @@ export function MonthlyIncomeCard({ style }: { style?: StyleProp<ViewStyle> }) {
         </Pressable>
       </View>
 
-      <SpringPressable
-        onPress={onLog}
-        disabled={logging}
-        haptic
-        style={{
-          backgroundColor: C.accent,
-          borderRadius: 12,
-          paddingVertical: 12,
-          alignItems: 'center',
-        }}
-      >
-        {logging ? (
-          <ActivityIndicator color="#FFFFFF" />
-        ) : (
-          <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: '#FFFFFF' }}>
-            Log {amountLabel} income
-          </Text>
-        )}
+      <SpringPressable onPress={onLog} disabled={logging} haptic style={{ borderRadius: 12 }}>
+        <LinearGradient
+          colors={[C.heroTop, C.heroMid, C.heroBot]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={{
+            borderRadius: 12,
+            overflow: 'hidden',
+            paddingVertical: 12,
+            alignItems: 'center',
+          }}
+        >
+          {logging ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: '#FFFFFF' }}>
+              Log {amountLabel} income
+            </Text>
+          )}
+        </LinearGradient>
       </SpringPressable>
     </View>
   );
