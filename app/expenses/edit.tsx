@@ -27,7 +27,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CurrencyPicker } from '@/components/CurrencyPicker';
 import { SpringPressable } from '@/components/SpringPressable';
-import { CURRENCIES, formatAmount, type CurrencyCode } from '@/lib/currency';
+import { CURRENCIES, formatAmount, groupDigits, type CurrencyCode } from '@/lib/currency';
 import { useExpenseCategoriesStore } from '@/lib/stores/expense-categories';
 import {
   todayDate,
@@ -268,7 +268,7 @@ export default function EditTransactionScreen() {
                 {CURRENCIES[currency].symbol}
               </Text>
               <TextInput
-                value={amountText}
+                value={groupDigits(amountText)}
                 onChangeText={(v) => setAmountText(v.replace(/[^0-9.]/g, ''))}
                 placeholder="0"
                 placeholderTextColor={C.textFaint}

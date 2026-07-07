@@ -30,7 +30,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AvatarVisual } from '@/components/AvatarVisual';
 import { MultiCurrencyPicker } from '@/components/MultiCurrencyPicker';
 import { AVATARS, DEFAULT_AVATAR } from '@/lib/avatars';
-import { CURRENCIES, formatAmount, type CurrencyCode } from '@/lib/currency';
+import { CURRENCIES, formatAmount, groupDigits, type CurrencyCode } from '@/lib/currency';
 import { detectLocaleCurrency } from '@/lib/locale-currency';
 import {
   INCOME_SOURCES,
@@ -778,7 +778,7 @@ function MoneyStep(props: MoneyStepProps) {
         <View style={{ marginTop: 22, gap: 12 }}>
           <BoxInput
             label={`Monthly income (${symbol})`}
-            value={props.incomeText}
+            value={groupDigits(props.incomeText)}
             onChangeText={props.onIncomeText}
             keyboardType="decimal-pad"
             leadingIcon={
@@ -796,7 +796,7 @@ function MoneyStep(props: MoneyStepProps) {
           />
           <BoxInput
             label={`Monthly spending budget (${symbol})`}
-            value={props.budgetText}
+            value={groupDigits(props.budgetText)}
             onChangeText={props.onBudgetText}
             keyboardType="decimal-pad"
             leadingIcon={<Wallet size={18} color={C.textMuted} />}

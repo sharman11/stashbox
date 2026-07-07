@@ -54,6 +54,7 @@ import {
   getMaxGoal,
   getMinGoal,
   getMinUnit,
+  groupDigits,
   getPracticalMaxNote,
   getPracticalNotes,
   isValidAmount,
@@ -888,7 +889,7 @@ export default function CreateScreen() {
                   {CURRENCY_LIST.find((c) => c.code === currency)?.symbol}
                 </Text>
                 <TextInput
-                  value={goalText}
+                  value={groupDigits(goalText)}
                   onChangeText={(v) => setGoalText(v.replace(/[^0-9]/g, ''))}
                   onBlur={() => {
                     if (goal > 0 && !goalValid) {

@@ -16,7 +16,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SpringPressable } from '@/components/SpringPressable';
-import { CURRENCIES, formatAmount, type CurrencyCode } from '@/lib/currency';
+import { CURRENCIES, formatAmount, groupDigits, type CurrencyCode } from '@/lib/currency';
 import { getCachedRates, getFxRates } from '@/lib/expenses/fx';
 import {
   progressForBudget,
@@ -453,7 +453,7 @@ function BudgetRow(props: BudgetRowProps) {
               {CURRENCIES[props.currency].symbol}
             </Text>
             <TextInput
-              value={text}
+              value={groupDigits(text)}
               onChangeText={(v) => setText(v.replace(/[^0-9.]/g, ''))}
               onBlur={commit}
               placeholder="0"

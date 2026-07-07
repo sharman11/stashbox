@@ -153,6 +153,37 @@ export function formatAmount(amount: number, currency: CurrencyCode): string {
   }
 }
 
+/**
+ * Group the digits of a raw numeric-input string with the device-locale
+ * thousands separators — the same grouping `formatAmount` uses for display,
+ * so a typed amount reads identically to the amounts shown elsewhere
+ * (e.g. "10,000", or "1,00,000" on an Indian-locale device).
+ *
+ * Keep state raw (digits + at most one dot) and pass it through this only for
+ * the TextInput `value`. A trailing/partial decimal the user is mid-typing is
+ * preserved verbatim ("12." stays "12.", "12.5" stays "12.5").
+ */
+export function groupDigits(raw: string | number): string {
+  const cleaned = String(raw ?? '').replace(/[^0-9.]/g, '');
+  if (cleaned === '') return '';
+  const dot = cleaned.indexOf('.');
+  const intRaw = dot === -1 ? cleaned : cleaned.slice(0, dot);
+  const decRaw = dot === -1 ? null : cleaned.slice(dot + 1).replace(/\./g, '');
+
+  let intGrouped = '';
+  if (intRaw !== '') {
+    try {
+      intGrouped = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(
+        Number(intRaw),
+      );
+    } catch {
+      intGrouped = intRaw.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    }
+  }
+  if (decRaw === null) return intGrouped;
+  return `${intGrouped === '' ? '0' : intGrouped}.${decRaw}`;
+}
+
 export function getNotes(currency: CurrencyCode): readonly number[] {
   return CURRENCIES[currency].notes;
 }
