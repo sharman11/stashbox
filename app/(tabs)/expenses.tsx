@@ -6,6 +6,7 @@ import {
   ChevronRight,
   Download,
   FolderTree,
+  MoreVertical,
   Plus,
   Settings,
   Target,
@@ -16,6 +17,7 @@ import {
   ActivityIndicator,
   Image,
   type ImageSourcePropType,
+  Modal,
   Pressable,
   ScrollView,
   Text,
@@ -97,6 +99,7 @@ export default function ExpensesScreen() {
   const [rates, setRates] = useState<Record<string, number>>(() => getCachedRates());
   const [periodAnchor, setPeriodAnchor] = useState<string>(currentMonthAnchor());
   const [showAllCategories, setShowAllCategories] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // Initial load: hydrate stores + warm FX cache. seedDefaults is idempotent.
   useEffect(() => {
@@ -304,11 +307,11 @@ export default function ExpensesScreen() {
               <HeroIconButton label="Budgets" onPress={() => router.push('/expenses/budgets')}>
                 <Target size={18} color="#FFFFFF" />
               </HeroIconButton>
-              <HeroIconButton label="Export CSV" onPress={onExport}>
-                <Download size={18} color="#FFFFFF" />
-              </HeroIconButton>
               <HeroIconButton label="Settings" onPress={() => router.push('/(tabs)/settings')}>
                 <Settings size={18} color="#FFFFFF" />
+              </HeroIconButton>
+              <HeroIconButton label="More" onPress={() => setMenuOpen(true)}>
+                <MoreVertical size={18} color="#FFFFFF" />
               </HeroIconButton>
             </View>
           </View>
@@ -859,6 +862,55 @@ export default function ExpensesScreen() {
           </LinearGradient>
         </SpringPressable>
       </View>
+
+      {/* Overflow menu — anchored top-right under the hero icons. Houses
+       *  low-frequency actions (Export) so the hero stays to three icons. */}
+      <Modal transparent visible={menuOpen} animationType="fade" onRequestClose={() => setMenuOpen(false)}>
+        <Pressable style={{ flex: 1 }} onPress={() => setMenuOpen(false)}>
+          <View
+            style={{
+              position: 'absolute',
+              top: insets.top + 56,
+              right: 16,
+              minWidth: 190,
+              backgroundColor: C.surface,
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: C.border,
+              paddingVertical: 6,
+              shadowColor: '#000',
+              shadowOpacity: 0.18,
+              shadowRadius: 20,
+              shadowOffset: { width: 0, height: 8 },
+              elevation: 8,
+            }}
+          >
+            <Pressable
+              onPress={() => {
+                setMenuOpen(false);
+                onExport();
+              }}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 12,
+                paddingHorizontal: 14,
+                paddingVertical: 12,
+              }}
+            >
+              <Download size={18} color={C.textSecondary} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: C.textPrimary }}>
+                  Export CSV
+                </Text>
+                <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 11, color: C.textMuted, marginTop: 1 }}>
+                  All transactions
+                </Text>
+              </View>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
