@@ -1,8 +1,9 @@
 import { Check } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { Keyboard, Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { Image, Keyboard, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { GradientButton } from './GradientButton';
+import { getStashSpotImage } from '@/lib/stash-spot-images';
 import { useAppTheme } from '@/lib/stores/theme';
 import { STASH_SPOTS, getStashSpot } from '@/lib/stash-spots';
 
@@ -94,6 +95,7 @@ export function StashSpotPicker({ visible, current, onSelect, onCancel }: StashS
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
               {STASH_SPOTS.map((spot) => {
                 const selected = spot.id === pending;
+                const art = getStashSpotImage(spot.id);
                 return (
                   <Pressable
                     key={spot.id}
@@ -110,7 +112,11 @@ export function StashSpotPicker({ visible, current, onSelect, onCancel }: StashS
                       gap: 6,
                     }}
                   >
-                    <Text style={{ fontSize: 28 }}>{spot.emoji}</Text>
+                    {art ? (
+                      <Image source={art} style={{ width: 44, height: 44 }} resizeMode="contain" />
+                    ) : (
+                      <Text style={{ fontSize: 28 }}>{spot.emoji}</Text>
+                    )}
                     <Text
                       style={{
                         fontFamily: 'DMSans_500Medium',

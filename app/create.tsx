@@ -18,6 +18,7 @@ import {
 } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -26,6 +27,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { getStashSpotImage } from '@/lib/stash-spot-images';
 import { CurrencyPicker } from '@/components/CurrencyPicker';
 import { CustomAlert } from '@/components/CustomAlert';
 import { IconPicker } from '@/components/IconPicker';
@@ -804,7 +806,14 @@ export default function CreateScreen() {
                         gap: 6,
                       }}
                     >
-                      <Text style={{ fontSize: 28 }}>{spot.emoji}</Text>
+                      {(() => {
+                        const art = getStashSpotImage(spot.id);
+                        return art ? (
+                          <Image source={art} style={{ width: 44, height: 44 }} resizeMode="contain" />
+                        ) : (
+                          <Text style={{ fontSize: 28 }}>{spot.emoji}</Text>
+                        );
+                      })()}
                       <Text
                         style={{
                           fontFamily: 'DMSans_500Medium',

@@ -1,6 +1,7 @@
 import { Check, Lock, X } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import {
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -10,6 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { getStashSpotImage } from '@/lib/stash-spot-images';
 
 import { IconPicker } from '@/components/IconPicker';
 import { StashSpotPicker } from '@/components/StashSpotPicker';
@@ -238,7 +240,14 @@ export function EditMoneyboxModal({ visible, moneybox, onCancel, onSave }: EditM
                     justifyContent: 'center',
                   }}
                 >
-                  <Text style={{ fontSize: 22 }}>{stashSpotInfo?.emoji ?? '✨'}</Text>
+                  {(() => {
+                    const art = getStashSpotImage(stashSpot);
+                    return art ? (
+                      <Image source={art} style={{ width: 36, height: 36 }} resizeMode="contain" />
+                    ) : (
+                      <Text style={{ fontSize: 22 }}>{stashSpotInfo?.emoji ?? '✨'}</Text>
+                    );
+                  })()}
                 </View>
                 <Text
                   style={{
