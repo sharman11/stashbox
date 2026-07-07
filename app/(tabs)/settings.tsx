@@ -1,10 +1,12 @@
 import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Notifications from 'expo-notifications';
+import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as StoreReview from 'expo-store-review';
 import {
   Bell,
+  Check,
   ChevronDown,
   ChevronRight,
   ChevronUp,
@@ -15,6 +17,7 @@ import {
   Sparkles,
   Star,
   Sun,
+  UserRound,
   Volume2,
   Vibrate,
   Wallpaper,
@@ -43,7 +46,7 @@ import type { CurrencyCode } from '@/lib/currency';
 import { requestAndRegisterNotifications, unregisterNotifications } from '@/lib/push';
 import { useAdsStore } from '@/lib/stores/ads';
 import { useMoneyboxesStore } from '@/lib/stores/moneyboxes';
-import { usePersonalizationStore, type HeroBackground } from '@/lib/stores/personalization';
+import { usePersonalizationStore, type HeroBackground, type StashHero } from '@/lib/stores/personalization';
 import { useProfileStore } from '@/lib/stores/profile';
 import { useSessionStore } from '@/lib/stores/session';
 import { useAppTheme, useThemeStore } from '@/lib/stores/theme';
@@ -52,6 +55,7 @@ import { useAlert } from '@/lib/use-alert';
 
 export default function SettingsScreen() {
   const C = useAppTheme();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { userId } = useSessionStore();
   const { profile, update } = useProfileStore();
@@ -155,7 +159,7 @@ export default function SettingsScreen() {
                 lineHeight: 20,
               }}
             >
-              Currencies, sound, reminders, and backups.
+              Currencies, appearance, sounds, and reminders.
             </Text>
           </LinearGradient>
 
@@ -299,7 +303,7 @@ export default function SettingsScreen() {
               <Divider />
               <SwitchRow
                 icon={<Vibrate size={16} color="#7C3AED" />}
-                tint="#EDE9FE"
+                tint="#7C3AED22"
                 title="Haptic feedback"
                 subtitle="Vibrate on interactions"
                 value={profile.hapticsEnabled}
@@ -308,7 +312,7 @@ export default function SettingsScreen() {
               <Divider />
               <SwitchRow
                 icon={<Bell size={16} color="#F59E0B" />}
-                tint="#FEF3C7"
+                tint="#F59E0B22"
                 title="Daily reminders"
                 subtitle="Get nudged if you forget to save"
                 value={notificationsEnabled}
@@ -329,7 +333,7 @@ export default function SettingsScreen() {
             <SectionHeader>SUPPORT</SectionHeader>
             <Card>
               <SpringPressable onPress={() => StoreReview.requestReview()} style={rowStyle}>
-                <IconBadge tint="#FEF3C7">
+                <IconBadge tint="#F59E0B22">
                   <Star size={16} color="#F59E0B" />
                 </IconBadge>
                 <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 15, color: C.textPrimary, flex: 1 }}>
@@ -344,19 +348,46 @@ export default function SettingsScreen() {
                 onPress={() => {
                   import('react-native').then(({ Share }) =>
                     Share.share({
+                      // Play Store listing. No &hl= locale param on purpose —
+                      // the store localizes for whoever opens the link.
                       message:
-                        'Check out Stashbox - a fun way to save money daily! https://stashbox.app',
+                        'Check out Stashbox - a fun way to save money daily! https://play.google.com/store/apps/details?id=com.stashbox.app',
                     }),
                   );
                 }}
                 style={rowStyle}
               >
-                <IconBadge tint="#EDE9FE">
+                <IconBadge tint="#7C3AED22">
                   <Share2 size={16} color="#7C3AED" />
                 </IconBadge>
                 <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 15, color: C.textPrimary, flex: 1 }}>
                   Share with friends
                 </Text>
+                <ChevronRight size={16} color={C.textFaint} />
+              </SpringPressable>
+            </Card>
+
+            {/* ── Account — pointer to Profile, where session actions live.
+             *  Not a duplicate: log out / delete stay on the Account tab. ── */}
+            <SectionHeader>ACCOUNT</SectionHeader>
+            <Card>
+              <SpringPressable
+                onPress={() =>
+                  router.push({ pathname: '/(tabs)/profile', params: { tab: 'account' } })
+                }
+                style={rowStyle}
+              >
+                <IconBadge tint={C.accentLight}>
+                  <UserRound size={16} color={C.accent} />
+                </IconBadge>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 15, color: C.textPrimary }}>
+                    Account
+                  </Text>
+                  <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 12, color: C.textMuted, marginTop: 2 }}>
+                    Profile, log out, delete account
+                  </Text>
+                </View>
                 <ChevronRight size={16} color={C.textFaint} />
               </SpringPressable>
             </Card>
@@ -368,7 +399,7 @@ export default function SettingsScreen() {
                 onPress={() => Linking.openURL('https://www.hotlist-jobs.com')}
                 style={rowStyle}
               >
-                <IconBadge tint="#FEF2F2">
+                <IconBadge tint="#EF444422">
                   <Text style={{ fontSize: 16 }}>🔥</Text>
                 </IconBadge>
                 <View style={{ flex: 1 }}>
@@ -591,7 +622,9 @@ interface SwitchRowProps {
 function SwitchRow({ icon, tint, title, subtitle, value, onChange }: SwitchRowProps) {
   const C = useAppTheme();
   return (
-    <View style={rowStyle}>
+    // The whole row toggles, not just the small Switch — a full-width touch
+    // target beats a 50pt one. The Switch still works directly too.
+    <SpringPressable onPress={() => onChange(!value)} haptic style={rowStyle}>
       <IconBadge tint={tint}>{icon}</IconBadge>
       <View style={{ flex: 1, marginRight: 12 }}>
         <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 15, color: C.textPrimary }}>
@@ -614,6 +647,28 @@ function SwitchRow({ icon, tint, title, subtitle, value, onChange }: SwitchRowPr
         trackColor={{ false: C.border, true: C.accent }}
         thumbColor="#FFFFFF"
       />
+    </SpringPressable>
+  );
+}
+
+/** Accent check badge overlaid on a selected personalization thumbnail. */
+function ThumbCheck() {
+  const C = useAppTheme();
+  return (
+    <View
+      style={{
+        position: 'absolute',
+        top: 4,
+        right: 4,
+        width: 18,
+        height: 18,
+        borderRadius: 9,
+        backgroundColor: C.accent,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Check size={11} color="#FFFFFF" strokeWidth={3} />
     </View>
   );
 }
@@ -637,10 +692,27 @@ const HERO_BG_OPTIONS: readonly HeroBgOption[] = [
   { key: 'forest-peek', label: 'Forest', source: require('@/assets/home/hero-forest-peek-bg.webp') },
 ];
 
+interface StashHeroOption {
+  key: StashHero;
+  label: string;
+  /** Wide (3:2) thumbnail; omitted for the gradient default. */
+  source?: number;
+}
+
+const STASH_HERO_OPTIONS: readonly StashHeroOption[] = [
+  { key: 'gradient', label: 'Gradient' },
+  { key: 'cozy', label: 'Cozy', source: require('@/assets/stash/heroes/cozy.webp') },
+  { key: 'moneybox', label: 'Moneybox', source: require('@/assets/stash/heroes/moneybox.webp') },
+  { key: 'mascot', label: 'Mascot', source: require('@/assets/stash/heroes/mascot.webp') },
+  { key: 'minimal', label: 'Minimal', source: require('@/assets/stash/heroes/minimal.webp') },
+];
+
 function PersonalizationRows() {
   const C = useAppTheme();
   const heroBackground = usePersonalizationStore((s) => s.heroBackground);
   const setHeroBackground = usePersonalizationStore((s) => s.setHeroBackground);
+  const stashHero = usePersonalizationStore((s) => s.stashHero);
+  const setStashHero = usePersonalizationStore((s) => s.setStashHero);
   const hydrate = usePersonalizationStore((s) => s.hydrate);
 
   useEffect(() => {
@@ -708,6 +780,7 @@ function PersonalizationRows() {
                         style={{ width: '100%', height: '100%' }}
                       />
                     )}
+                    {selected && <ThumbCheck />}
                   </View>
                   <Text
                     style={{
@@ -727,14 +800,14 @@ function PersonalizationRows() {
 
       <Divider />
 
-      {/* Placeholder for future personalization options */}
-      <View style={[rowStyle, { opacity: 0.55 }]}>
+      {/* Stash hero background picker (wide 3:2 thumbnails). */}
+      <View style={[rowStyle, { alignItems: 'flex-start' }]}>
         <IconBadge tint={C.accentLight}>
           <Sparkles size={16} color={C.accent} />
         </IconBadge>
         <View style={{ flex: 1 }}>
           <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 15, color: C.textPrimary }}>
-            More personalizations
+            Stash background
           </Text>
           <Text
             style={{
@@ -742,10 +815,66 @@ function PersonalizationRows() {
               fontSize: 12,
               color: C.textMuted,
               marginTop: 2,
+              marginBottom: 12,
             }}
           >
-            Coming soon
+            Pick the look for your Stash header
           </Text>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 10, paddingRight: 4 }}
+          >
+            {STASH_HERO_OPTIONS.map((opt) => {
+              const selected = stashHero === opt.key;
+              return (
+                <SpringPressable
+                  key={opt.key}
+                  onPress={() => setStashHero(opt.key)}
+                  haptic
+                  style={{ alignItems: 'center', gap: 6 }}
+                >
+                  <View
+                    style={{
+                      width: 92,
+                      height: 61,
+                      borderRadius: 12,
+                      overflow: 'hidden',
+                      borderWidth: 2,
+                      borderColor: selected ? C.accent : C.border,
+                    }}
+                  >
+                    {opt.source ? (
+                      <Image
+                        source={opt.source}
+                        style={{ width: '100%', height: '100%' }}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <LinearGradient
+                        colors={['#06291F', '#145A42', '#1A8A66', '#2A9B72']}
+                        locations={[0, 0.35, 0.75, 1]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={{ width: '100%', height: '100%' }}
+                      />
+                    )}
+                    {selected && <ThumbCheck />}
+                  </View>
+                  <Text
+                    style={{
+                      fontFamily: selected ? 'DMSans_600SemiBold' : 'DMSans_400Regular',
+                      fontSize: 11,
+                      color: selected ? C.accent : C.textMuted,
+                    }}
+                  >
+                    {opt.label}
+                  </Text>
+                </SpringPressable>
+              );
+            })}
+          </ScrollView>
         </View>
       </View>
     </>

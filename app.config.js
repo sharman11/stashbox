@@ -77,9 +77,10 @@ module.exports = {
       package: 'com.stashbox.app',
       versionCode: 2,
       adaptiveIcon: {
+        // Solid background color — no backgroundImage; the referenced file
+        // never existed and backgroundColor fills the same role.
         backgroundColor: '#E6F4EA',
         foregroundImage: './assets/images/android-icon-foreground.png',
-        backgroundImage: './assets/images/android-icon-background.png',
         monochromeImage: './assets/images/android-icon-monochrome.png',
       },
       edgeToEdgeEnabled: true,

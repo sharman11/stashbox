@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
   Flame,
@@ -14,6 +14,7 @@ import {
 } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -47,7 +48,7 @@ import { useAdsStore } from '@/lib/stores/ads';
 import { useAvatarStore } from '@/lib/stores/avatar';
 import { useMoneyboxesStore } from '@/lib/stores/moneyboxes';
 import { useProfileStore } from '@/lib/stores/profile';
-import { useSessionStore } from '@/lib/stores/session';
+import { resetUserScopedStores, useSessionStore } from '@/lib/stores/session';
 import { useAppTheme } from '@/lib/stores/theme';
 import { useAlert } from '@/lib/use-alert';
 
@@ -115,7 +116,19 @@ export default function ProfileScreen() {
   const [nameText, setNameText] = useState(profile?.displayName ?? '');
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [personality, setPersonality] = useState<Personality | null>(null);
-  const [tab, setTab] = useState<'stats' | 'progress' | 'account'>('stats');
+  const [deleting, setDeleting] = useState(false);
+
+  // Deep-linkable tab (e.g. Settings → Account pushes ?tab=account).
+  const params = useLocalSearchParams<{ tab?: string }>();
+  const isTab = (v: string | undefined): v is 'stats' | 'progress' | 'account' =>
+    v === 'stats' || v === 'progress' || v === 'account';
+  const [tab, setTab] = useState<'stats' | 'progress' | 'account'>(
+    isTab(params.tab) ? params.tab : 'stats',
+  );
+  useEffect(() => {
+    if (isTab(params.tab)) setTab(params.tab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.tab]);
 
   useEffect(() => {
     AsyncStorage.getItem('stashbox_personality').then((raw) => {
@@ -222,8 +235,17 @@ export default function ProfileScreen() {
           text: 'Delete forever',
           style: 'destructive',
           onPress: async () => {
+            // Same shape as logout: transition guard, synchronous session
+            // clear, wipe local stores, navigate explicitly. `deleting`
+            // drives a full-screen overlay — the RPC + sign-out take a
+            // couple of seconds and silence reads as "nothing happened".
+            useSessionStore.getState().setTransitioning(true);
+            setDeleting(true);
             try {
               await deleteAccount();
+              useSessionStore.setState({ userId: null, isAnonymous: true, email: null });
+              await resetUserScopedStores();
+              router.replace('/(auth)/welcome');
             } catch (e: unknown) {
               showAlert(
                 'Failed',
@@ -231,6 +253,9 @@ export default function ProfileScreen() {
                 undefined,
                 '⚠️',
               );
+            } finally {
+              setDeleting(false);
+              useSessionStore.getState().setTransitioning(false);
             }
           },
         },
@@ -305,20 +330,31 @@ export default function ProfileScreen() {
                 </View>
               </SpringPressable>
 
-              <Text
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.7}
-                style={{
-                  fontFamily: 'DMSans_700Bold',
-                  fontSize: 24,
-                  color: '#FFFFFF',
-                  marginTop: 16,
-                  paddingHorizontal: 24,
+              {/* Name is tappable — jumps to the Account tab with the editor
+               *  open, so editing doesn't rely on finding the row later. */}
+              <SpringPressable
+                onPress={() => {
+                  setNameText(profile.displayName ?? '');
+                  setTab('account');
+                  setEditingName(true);
                 }}
+                haptic
               >
-                {profile.displayName?.trim() || 'Your name'}
-              </Text>
+                <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}
+                  style={{
+                    fontFamily: 'DMSans_700Bold',
+                    fontSize: 24,
+                    color: '#FFFFFF',
+                    marginTop: 16,
+                    paddingHorizontal: 24,
+                  }}
+                >
+                  {profile.displayName?.trim() || 'Set your name'}
+                </Text>
+              </SpringPressable>
               <View
                 style={{
                   marginTop: 8,
@@ -380,9 +416,10 @@ export default function ProfileScreen() {
               ]).map((t) => {
                 const active = tab === t.key;
                 return (
-                  <Pressable
+                  <SpringPressable
                     key={t.key}
                     onPress={() => setTab(t.key)}
+                    haptic
                     style={{
                       flex: 1,
                       paddingVertical: 10,
@@ -406,7 +443,7 @@ export default function ProfileScreen() {
                     >
                       {t.label}
                     </Text>
-                  </Pressable>
+                  </SpringPressable>
                 );
               })}
             </View>
@@ -585,13 +622,13 @@ export default function ProfileScreen() {
                 icon={<Trophy size={16} color="#F59E0B" />}
                 label="Completed"
                 value={String(completedBoxes)}
-                tint="#FEF3C7"
+                tint="#F59E0B22"
               />
               <StatTile
                 icon={<Flame size={16} color="#EF4444" />}
                 label="Best streak"
                 value={`${bestStreakDays}d`}
-                tint="#FEE2E2"
+                tint="#EF444422"
               />
               <StatTile
                 icon={<Flame size={16} color={C.accent} />}
@@ -713,8 +750,6 @@ export default function ProfileScreen() {
                       paddingVertical: 12,
                       paddingHorizontal: 12,
                       marginBottom: 8,
-                      borderLeftWidth: 4,
-                      borderLeftColor: played ? g.palette.accent : C.borderLight,
                       shadowColor: 'rgba(0,0,0,0.06)',
                       shadowOffset: { width: 0, height: 2 },
                       shadowOpacity: 1,
@@ -912,6 +947,8 @@ export default function ProfileScreen() {
                 </Text>
               </View>
               <View style={{ height: 0.5, backgroundColor: C.borderLight, marginHorizontal: 16 }} />
+              {/* Log out is routine, not destructive — neutral styling so it
+               *  can't be confused with delete-account below. */}
               <SpringPressable
                 onPress={onLogOut}
                 style={{
@@ -927,20 +964,35 @@ export default function ProfileScreen() {
                     width: 36,
                     height: 36,
                     borderRadius: 12,
-                    backgroundColor: '#FEF2F2',
+                    backgroundColor: C.borderLight,
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
                 >
-                  <LogOut size={16} color="#EF4444" />
+                  <LogOut size={16} color={C.textSecondary} />
                 </View>
-                <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 15, color: '#EF4444', flex: 1 }}>
+                <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 15, color: C.textPrimary, flex: 1 }}>
                   Log out
                 </Text>
               </SpringPressable>
+            </View>
 
-              <View style={{ height: 0.5, backgroundColor: C.borderLight, marginHorizontal: 16 }} />
-
+            {/* Destructive action lives in its own card, pushed down and
+             *  visually separated from routine account actions. */}
+            <View
+              style={{
+                backgroundColor: C.surface,
+                borderRadius: 16,
+                overflow: 'hidden',
+                marginTop: 8,
+                marginBottom: 24,
+                shadowColor: 'rgba(0,0,0,0.12)',
+                shadowOffset: { width: 0, height: 6 },
+                shadowOpacity: 1,
+                shadowRadius: 20,
+                elevation: 2,
+              }}
+            >
               <SpringPressable
                 onPress={onDelete}
                 style={{
@@ -956,7 +1008,7 @@ export default function ProfileScreen() {
                     width: 36,
                     height: 36,
                     borderRadius: 12,
-                    backgroundColor: '#FEF2F2',
+                    backgroundColor: '#EF444422',
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
@@ -989,6 +1041,29 @@ export default function ProfileScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      {/* Full-screen blocker while the account is being deleted — the RPC +
+       *  sign-out span a few network calls and silence looks like a hang. */}
+      {deleting && (
+        <View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.55)',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 14,
+            zIndex: 100,
+          }}
+        >
+          <ActivityIndicator size="large" color="#FFFFFF" />
+          <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: '#FFFFFF' }}>
+            Deleting your account…
+          </Text>
+        </View>
+      )}
       <CustomAlert config={alertConfig} onDismiss={dismissAlert} />
       <AvatarPicker
         visible={showAvatarPicker}
@@ -1234,7 +1309,7 @@ function BadgesCard({ earnedBadges, earnedCount }: BadgesCardProps) {
             gap: 14,
             marginBottom: 16,
             borderWidth: 1,
-            borderColor: 'rgba(29,185,84,0.2)',
+            borderColor: `${C.accent}33`,
           }}
         >
           <View
@@ -1242,7 +1317,7 @@ function BadgesCard({ earnedBadges, earnedCount }: BadgesCardProps) {
               width: 56,
               height: 56,
               borderRadius: 18,
-              backgroundColor: '#FFFFFF',
+              backgroundColor: C.surface,
               alignItems: 'center',
               justifyContent: 'center',
             }}
@@ -1364,7 +1439,7 @@ function BadgesCard({ earnedBadges, earnedCount }: BadgesCardProps) {
                             width: 16,
                             height: 16,
                             borderRadius: 8,
-                            backgroundColor: 'rgba(255,255,255,0.9)',
+                            backgroundColor: C.surface,
                             alignItems: 'center',
                             justifyContent: 'center',
                           }}
