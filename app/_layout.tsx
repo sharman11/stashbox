@@ -320,6 +320,7 @@ export default function RootLayout() {
           <Stack.Screen name="expenses/edit" options={{ presentation: 'modal' }} />
           <Stack.Screen name="expenses/categories" />
           <Stack.Screen name="expenses/budgets" />
+          <Stack.Screen name="expenses/transactions" />
           <Stack.Screen name="games/coin-merge" />
           <Stack.Screen name="games/snake" />
           <Stack.Screen name="games/memory-match" />
