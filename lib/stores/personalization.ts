@@ -24,11 +24,22 @@ export type StashHero =
   | 'mascot'
   | 'minimal';
 
+/** The Expenses tab hero background.
+ *  `gradient` = the default brand gradient.
+ *  the rest are wide illustrated scenes (market / balance / receipt / acorns). */
+export type ExpenseHero =
+  | 'gradient'
+  | 'market'
+  | 'balance'
+  | 'receipt'
+  | 'acorns';
+
 const STORAGE_KEY = 'stashbox_personalization_v1';
 
 interface Persisted {
   heroBackground: HeroBackground;
   stashHero: StashHero;
+  expenseHero: ExpenseHero;
 }
 
 interface PersonalizationState extends Persisted {
@@ -37,11 +48,13 @@ interface PersonalizationState extends Persisted {
   hydrate: () => Promise<void>;
   setHeroBackground: (bg: HeroBackground) => Promise<void>;
   setStashHero: (bg: StashHero) => Promise<void>;
+  setExpenseHero: (bg: ExpenseHero) => Promise<void>;
 }
 
 const DEFAULTS: Persisted = {
   heroBackground: 'default',
   stashHero: 'gradient',
+  expenseHero: 'gradient',
 };
 
 async function readDisk(): Promise<Partial<Persisted>> {
@@ -92,13 +105,19 @@ export const usePersonalizationStore = create<PersonalizationState>((set, get) =
 
   setHeroBackground: async (bg) => {
     set({ heroBackground: bg });
-    const { heroBackground, stashHero } = get();
-    await writeDisk({ heroBackground, stashHero });
+    const { heroBackground, stashHero, expenseHero } = get();
+    await writeDisk({ heroBackground, stashHero, expenseHero });
   },
 
   setStashHero: async (bg) => {
     set({ stashHero: bg });
-    const { heroBackground, stashHero } = get();
-    await writeDisk({ heroBackground, stashHero });
+    const { heroBackground, stashHero, expenseHero } = get();
+    await writeDisk({ heroBackground, stashHero, expenseHero });
+  },
+
+  setExpenseHero: async (bg) => {
+    set({ expenseHero: bg });
+    const { heroBackground, stashHero, expenseHero } = get();
+    await writeDisk({ heroBackground, stashHero, expenseHero });
   },
 }));

@@ -20,6 +20,7 @@ import {
   UserRound,
   Volume2,
   Vibrate,
+  Wallet,
   Wallpaper,
 } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
@@ -46,7 +47,7 @@ import type { CurrencyCode } from '@/lib/currency';
 import { requestAndRegisterNotifications, unregisterNotifications } from '@/lib/push';
 import { useAdsStore } from '@/lib/stores/ads';
 import { useMoneyboxesStore } from '@/lib/stores/moneyboxes';
-import { usePersonalizationStore, type HeroBackground, type StashHero } from '@/lib/stores/personalization';
+import { usePersonalizationStore, type ExpenseHero, type HeroBackground, type StashHero } from '@/lib/stores/personalization';
 import { useProfileStore } from '@/lib/stores/profile';
 import { useSessionStore } from '@/lib/stores/session';
 import { useAppTheme, useThemeStore } from '@/lib/stores/theme';
@@ -707,12 +708,29 @@ const STASH_HERO_OPTIONS: readonly StashHeroOption[] = [
   { key: 'minimal', label: 'Minimal', source: require('@/assets/stash/heroes/minimal.webp') },
 ];
 
+interface ExpenseHeroOption {
+  key: ExpenseHero;
+  label: string;
+  /** Wide (3:2) thumbnail; omitted for the gradient default. */
+  source?: number;
+}
+
+const EXPENSE_HERO_OPTIONS: readonly ExpenseHeroOption[] = [
+  { key: 'gradient', label: 'Gradient' },
+  { key: 'market', label: 'Market', source: require('@/assets/expenses/heroes/market.webp') },
+  { key: 'balance', label: 'Balance', source: require('@/assets/expenses/heroes/balance.webp') },
+  { key: 'receipt', label: 'Receipt', source: require('@/assets/expenses/heroes/receipt.webp') },
+  { key: 'acorns', label: 'Acorns', source: require('@/assets/expenses/heroes/acorns.webp') },
+];
+
 function PersonalizationRows() {
   const C = useAppTheme();
   const heroBackground = usePersonalizationStore((s) => s.heroBackground);
   const setHeroBackground = usePersonalizationStore((s) => s.setHeroBackground);
   const stashHero = usePersonalizationStore((s) => s.stashHero);
   const setStashHero = usePersonalizationStore((s) => s.setStashHero);
+  const expenseHero = usePersonalizationStore((s) => s.expenseHero);
+  const setExpenseHero = usePersonalizationStore((s) => s.setExpenseHero);
   const hydrate = usePersonalizationStore((s) => s.hydrate);
 
   useEffect(() => {
@@ -833,6 +851,87 @@ function PersonalizationRows() {
                   key={opt.key}
                   onPress={() => setStashHero(opt.key)}
                   haptic
+                  style={{ alignItems: 'center', gap: 6 }}
+                >
+                  <View
+                    style={{
+                      width: 92,
+                      height: 61,
+                      borderRadius: 12,
+                      overflow: 'hidden',
+                      borderWidth: 2,
+                      borderColor: selected ? C.accent : C.border,
+                    }}
+                  >
+                    {opt.source ? (
+                      <Image
+                        source={opt.source}
+                        style={{ width: '100%', height: '100%' }}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <LinearGradient
+                        colors={['#06291F', '#145A42', '#1A8A66', '#2A9B72']}
+                        locations={[0, 0.35, 0.75, 1]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={{ width: '100%', height: '100%' }}
+                      />
+                    )}
+                    {selected && <ThumbCheck />}
+                  </View>
+                  <Text
+                    style={{
+                      fontFamily: selected ? 'DMSans_600SemiBold' : 'DMSans_400Regular',
+                      fontSize: 11,
+                      color: selected ? C.accent : C.textMuted,
+                    }}
+                  >
+                    {opt.label}
+                  </Text>
+                </SpringPressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      </View>
+
+      <Divider />
+
+      {/* Expenses hero background picker (wide 3:2 thumbnails). */}
+      <View style={[rowStyle, { alignItems: 'flex-start' }]}>
+        <IconBadge tint={C.accentLight}>
+          <Wallet size={16} color={C.accent} />
+        </IconBadge>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 15, color: C.textPrimary }}>
+            Expenses background
+          </Text>
+          <Text
+            style={{
+              fontFamily: 'DMSans_400Regular',
+              fontSize: 12,
+              color: C.textMuted,
+              marginTop: 2,
+              marginBottom: 12,
+            }}
+          >
+            Pick the look for your Expenses header
+          </Text>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 10, paddingRight: 4 }}
+          >
+            {EXPENSE_HERO_OPTIONS.map((opt) => {
+              const selected = expenseHero === opt.key;
+              return (
+                <SpringPressable
+                  key={opt.key}
+                  onPress={() => setExpenseHero(opt.key)}
+                  haptic
+                  accessibilityLabel={`${opt.label} expenses background`}
                   style={{ alignItems: 'center', gap: 6 }}
                 >
                   <View

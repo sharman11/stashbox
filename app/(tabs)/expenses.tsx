@@ -13,6 +13,8 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
+  type ImageSourcePropType,
   Pressable,
   ScrollView,
   Text,
@@ -43,10 +45,20 @@ import {
   totalsForMonth,
   useExpenseTransactionsStore,
 } from '@/lib/stores/expense-transactions';
+import { usePersonalizationStore, type ExpenseHero } from '@/lib/stores/personalization';
 import { useProfileStore } from '@/lib/stores/profile';
 import { useSessionStore } from '@/lib/stores/session';
 import { useAppTheme } from '@/lib/stores/theme';
 import type { ExpenseCategory, ExpenseTransaction } from '@/lib/types';
+
+// Wide illustrated Expenses hero backgrounds; `gradient` falls back to the
+// brand LinearGradient. require() needs static literals → module scope.
+const EXPENSE_HERO_SOURCES: Partial<Record<ExpenseHero, ImageSourcePropType>> = {
+  market: require('@/assets/expenses/heroes/market.webp'),
+  balance: require('@/assets/expenses/heroes/balance.webp'),
+  receipt: require('@/assets/expenses/heroes/receipt.webp'),
+  acorns: require('@/assets/expenses/heroes/acorns.webp'),
+};
 
 /* ──────────────────────────────────────────────────────────────────────
  * Expenses tab
@@ -62,6 +74,13 @@ export default function ExpensesScreen() {
   const profile = useProfileStore((s) => s.profile);
   const avatarId = useAvatarStore((s) => s.id);
   const homeCurrency: CurrencyCode = profile?.defaultCurrency ?? 'USD';
+
+  const expenseHero = usePersonalizationStore((s) => s.expenseHero);
+  const hydratePersonalization = usePersonalizationStore((s) => s.hydrate);
+  useEffect(() => {
+    hydratePersonalization();
+  }, [hydratePersonalization]);
+  const heroImage = EXPENSE_HERO_SOURCES[expenseHero];
 
   const categories = useExpenseCategoriesStore((s) => s.categories);
   const seedDefaults = useExpenseCategoriesStore((s) => s.seedDefaultsIfEmpty);
@@ -225,17 +244,28 @@ export default function ExpensesScreen() {
         {/* HERO — same container/size as the Stash tab                 */}
         {/* ═══════════════════════════════════════════════════════════ */}
         <View style={{ paddingBottom: 52, backgroundColor: C.heroTop }}>
-          {/* Background gradient (absolute-fill wrapper, like Stash). */}
+          {/* Background: chosen illustration, else the brand gradient
+           *  (absolute-fill wrapper, like Stash). Dark base behind so a
+           *  decoding image never flashes blank. */}
           <View
             pointerEvents="none"
             style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' }}
           >
-            <LinearGradient
-              colors={[C.heroTop, C.heroMid, C.heroBot]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 0.5, y: 1 }}
-              style={{ width: '100%', height: '100%' }}
-            />
+            {heroImage ? (
+              <Image
+                source={heroImage}
+                resizeMode="cover"
+                fadeDuration={0}
+                style={{ width: '100%', height: '100%' }}
+              />
+            ) : (
+              <LinearGradient
+                colors={[C.heroTop, C.heroMid, C.heroBot]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 0.5, y: 1 }}
+                style={{ width: '100%', height: '100%' }}
+              />
+            )}
           </View>
 
           {/* Top bar: avatar (left) + actions (right) — matches Stash/Home. */}
