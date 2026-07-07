@@ -1,18 +1,15 @@
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo } from 'react';
-import { ScrollView, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { ScrollView, View, useWindowDimensions } from 'react-native';
 
 import { AttentionFeed } from '@/components/home/AttentionFeed';
-import { DebtFreeCard } from '@/components/home/DebtFreeCard';
 import { EmptyHero } from '@/components/home/EmptyHero';
 import { HomeHero } from '@/components/home/HomeHero';
-import { NetWorthCard, useNetWorth } from '@/components/home/NetWorthCard';
-import { ProgressCard, useProgress } from '@/components/home/ProgressCard';
+import { ProgressCard } from '@/components/home/ProgressCard';
 import { SafeToSpendCard } from '@/components/home/SafeToSpendCard';
 import { useExpenseBudgetsStore } from '@/lib/stores/expense-budgets';
 import { useExpenseCategoriesStore } from '@/lib/stores/expense-categories';
 import { useExpenseTransactionsStore } from '@/lib/stores/expense-transactions';
-import { useLoansStore } from '@/lib/stores/loans';
 import { useMoneyboxesStore } from '@/lib/stores/moneyboxes';
 import { useSessionStore } from '@/lib/stores/session';
 import { useAppTheme } from '@/lib/stores/theme';
@@ -20,29 +17,34 @@ import { useAppTheme } from '@/lib/stores/theme';
 export default function HomeScreen() {
   const C = useAppTheme();
   const userId = useSessionStore((s) => s.userId);
+  const { width: screenWidth } = useWindowDimensions();
+  // Same 3:4 box all three hero states (shell / empty / populated) share.
+  const heroHeight = Math.round(screenWidth * (4 / 3));
 
   const moneyboxes = useMoneyboxesStore((s) => s.moneyboxes);
   const loadAllBoxes = useMoneyboxesStore((s) => s.loadAll);
   const loadCells = useMoneyboxesStore((s) => s.loadCells);
-  const loans = useLoansStore((s) => s.loans);
-  const loadAllLoans = useLoansStore((s) => s.loadAll);
-  const loadPayments = useLoansStore((s) => s.loadPayments);
+  const transactions = useExpenseTransactionsStore((s) => s.transactions);
   const loadTransactions = useExpenseTransactionsStore((s) => s.loadAll);
   const loadBudgets = useExpenseBudgetsStore((s) => s.loadAll);
   const loadCategories = useExpenseCategoriesStore((s) => s.loadAll);
 
   // Hydrate the data sources the hero charts and home cards read from
-  // (boxes/cells, loans/payments, expense transactions, budgets, categories).
-  // Categories drive the safe-to-spend bar's segment colors. Every store is
-  // TTL-cached internally, so re-running this is cheap.
+  // (boxes/cells, expense transactions, budgets, categories). Categories drive
+  // the safe-to-spend bar's segment colors. Every store is TTL-cached
+  // internally, so re-running this is cheap. `hydrated` flips once the first
+  // pass settles — before that we don't know empty vs populated, and guessing
+  // is what caused the empty-hero → data-hero flash on account creation.
+  const [hydrated, setHydrated] = useState(false);
   useEffect(() => {
     if (!userId) return;
-    loadAllBoxes(userId);
-    loadAllLoans(userId);
-    loadTransactions(userId);
-    loadBudgets(userId);
-    loadCategories(userId);
-  }, [userId, loadAllBoxes, loadAllLoans, loadTransactions, loadBudgets, loadCategories]);
+    Promise.allSettled([
+      loadAllBoxes(userId),
+      loadTransactions(userId),
+      loadBudgets(userId),
+      loadCategories(userId),
+    ]).then(() => setHydrated(true));
+  }, [userId, loadAllBoxes, loadTransactions, loadBudgets, loadCategories]);
 
   useEffect(() => {
     for (const box of moneyboxes) {
@@ -51,29 +53,19 @@ export default function HomeScreen() {
     }
   }, [moneyboxes, loadCells]);
 
-  useEffect(() => {
-    for (const loan of loans) {
-      if (loan.status !== 'active') continue;
-      loadPayments(loan.id);
-    }
-  }, [loans, loadPayments]);
-
-  // Presence of the two compact stat cards drives the layout below: both
-  // present → they sit side by side in a 2-col row; only one → it spans full
-  // width. (Same hooks the cards use internally, so no duplicate logic.)
-  const netWorth = useNetWorth();
-  const progress = useProgress();
-  const hasNetWorth = netWorth.available;
-  const hasProgress = progress.hasAny;
-
   const hasAnyActiveGoal = useMemo(
     () => moneyboxes.some((b) => b.status === 'active'),
     [moneyboxes],
   );
-  // Only switch to the empty-state hero once the session is hydrated. Before
-  // that we don't know whether the user has goals or not, so default to the
-  // normal hero to avoid flashing the welcome card on every cold start.
-  const showEmptyHero = Boolean(userId) && !hasAnyActiveGoal;
+  // "Activity" = the user DID something: created a stash or logged a
+  // transaction themselves. The single income transaction seeded by the
+  // signup money picture doesn't count — a brand-new user should still get
+  // the welcome hero, not a $0 chart.
+  const hasLoggedTransaction = useMemo(
+    () => transactions.some((t) => !(t.type === 'income' && t.note === 'Monthly income')),
+    [transactions],
+  );
+  const showEmptyHero = Boolean(userId) && !hasAnyActiveGoal && !hasLoggedTransaction;
 
   return (
     <View style={{ flex: 1, backgroundColor: C.heroTop }}>
@@ -84,36 +76,37 @@ export default function HomeScreen() {
         contentContainerStyle={{
           paddingBottom: 40,
           backgroundColor: C.pageBg,
+          // Stretch to fill the viewport: the root View behind is heroTop
+          // green (for the pull-down bounce behind the hero), and short
+          // content (empty state) would otherwise expose it as a green band
+          // under the last card.
+          flexGrow: 1,
         }}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Full-bleed hero (safe-area top is owned by the gradient) ── */}
-        {showEmptyHero ? <EmptyHero /> : <HomeHero />}
+        {/* ── Full-bleed hero (safe-area top is owned by the gradient).
+         *  All three states share the same 3:4 box, so transitions are
+         *  content swaps, not layout jumps. Until the stores settle we show
+         *  a neutral shell — committing to empty OR populated early is what
+         *  caused the flash on account creation. */}
+        {!hydrated ? (
+          <View style={{ height: heroHeight, backgroundColor: C.heroTop }} />
+        ) : showEmptyHero ? (
+          <EmptyHero />
+        ) : (
+          <HomeHero />
+        )}
 
         {/* ── Below the hero, ordered by usefulness/urgency:
-         *  ① what needs attention → ② safe to spend (daily) → ③ debt-free
-         *  optimizer → ④ net worth + progress, paired into a 2-col row to cut
-         *  the scroll (each spans full width if it's the only one present). */}
-        {!showEmptyHero && (
+         *  ① what needs attention → ② safe to spend (daily) → ③ progress.
+         *  The empty state keeps safe-to-spend visible: an onboarding-set
+         *  budget shows its numbers (or the set-a-budget CTA) before the
+         *  first goal or transaction exists. */}
+        {hydrated && (
           <View style={{ paddingHorizontal: 16, paddingTop: 38, gap: 12 }}>
-            <AttentionFeed />
+            {!showEmptyHero && <AttentionFeed />}
             <SafeToSpendCard />
-            <DebtFreeCard />
-            {hasNetWorth && hasProgress ? (
-              <View style={{ flexDirection: 'row', gap: 12, alignItems: 'stretch' }}>
-                <View style={{ flex: 1 }}>
-                  <NetWorthCard half />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <ProgressCard half />
-                </View>
-              </View>
-            ) : (
-              <>
-                <NetWorthCard />
-                <ProgressCard />
-              </>
-            )}
+            {!showEmptyHero && <ProgressCard />}
           </View>
         )}
       </ScrollView>

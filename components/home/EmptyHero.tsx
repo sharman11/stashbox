@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
-import { Plus, Settings } from 'lucide-react-native';
-import { ImageBackground, Text, View } from 'react-native';
+import { Plus, Settings, Wallet } from 'lucide-react-native';
+import { ImageBackground, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AvatarVisual } from '@/components/AvatarVisual';
@@ -10,30 +10,35 @@ import { useProfileStore } from '@/lib/stores/profile';
 import { useAppTheme } from '@/lib/stores/theme';
 
 /**
- * Hero replacement for brand-new users with no active goals. The illustrated
- * background (squirrel + acorn valley) carries the emotional welcome; text
- * and CTA overlay on the calm upper portion of the image.
+ * Empty-state hero for brand-new users with nothing logged yet. Sized to the
+ * exact 3:4 box HomeHero uses, so when data arrives the swap to the real
+ * hero is a content change inside identical geometry instead of a full-page
+ * layout jump (the "glitch" right after account creation). Cards render
+ * below it, same as the populated home.
  */
 export function EmptyHero() {
   const C = useAppTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { width: screenWidth } = useWindowDimensions();
   const { profile } = useProfileStore();
   const avatarId = useAvatarStore((s) => s.id);
 
   const trimmedName = profile?.displayName?.trim() ?? '';
   const heading = trimmedName ? `Welcome, ${trimmedName}` : 'Welcome';
 
+  // Match HomeHero: fixed 3:4 portrait box (height = width × 4/3).
+  const heroHeight = Math.round(screenWidth * (4 / 3));
+
   return (
     <View style={{ backgroundColor: C.heroTop }}>
       <ImageBackground
         source={require('@/assets/home/empty-hero-bg.webp')}
         resizeMode="cover"
-        // 3:4 portrait — matches the illustration's native aspect so the
-        // foreground scene (hills, acorns, mascot, stash tree) sits inside
-        // the visible frame regardless of device width.
+        // 3:4 matches the illustration's native aspect, so the scene (hills,
+        // mascot, stash tree) sits fully inside the frame.
         style={{
-          aspectRatio: 3 / 4,
+          height: heroHeight,
           paddingTop: insets.top + 12,
         }}
       >
@@ -80,9 +85,8 @@ export function EmptyHero() {
           </SpringPressable>
         </View>
 
-        {/* Welcome block — anchored in the upper portion where the green sky
-         *  gives white text strong contrast. Below ~60% the illustration's
-         *  cream-peach horizon takes over, which would compete with text. */}
+        {/* Welcome copy — sits in the upper green sky where white text has
+         *  strong contrast, clear of the artwork below. */}
         <View style={{ paddingHorizontal: 24, marginTop: 28 }}>
           <Text
             style={{
@@ -98,44 +102,86 @@ export function EmptyHero() {
             style={{
               fontFamily: 'DMSans_500Medium',
               fontSize: 14,
-              color: 'rgba(255,255,255,0.78)',
+              color: 'rgba(255,255,255,0.8)',
               lineHeight: 20,
               marginTop: 10,
             }}
           >
-            {`Pick something you're saving for and watch it fill up, one tap at a time. Setting up your first goal takes about a minute.`}
+            {`Save toward what matters and keep an eye on where your money goes. Start with either. It only takes a minute.`}
           </Text>
 
-          <View style={{ flexDirection: 'row', marginTop: 22 }}>
-            <SpringPressable
-              onPress={() => router.push('/create')}
-              haptic
+          {/* CTAs — 40px below the subtext. Two equal-width rounded pills side
+           *  by side: saving is primary (solid white), tracking spending is
+           *  the quieter ghost alternative. */}
+          <View
+            style={{
+              flexDirection: 'row',
+              marginTop: 40,
+              gap: 12,
+            }}
+          >
+          <SpringPressable
+            onPress={() => router.push('/create')}
+            haptic
+            style={{
+              flex: 1,
+              backgroundColor: '#FFFFFF',
+              borderRadius: 999,
+              paddingVertical: 15,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 7,
+              shadowColor: '#000',
+              shadowOpacity: 0.22,
+              shadowRadius: 14,
+              shadowOffset: { width: 0, height: 6 },
+              elevation: 4,
+            }}
+          >
+            <Plus size={17} color={C.heroTop} strokeWidth={2.5} />
+            <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit
               style={{
-                backgroundColor: '#FFFFFF',
-                borderRadius: 999,
-                paddingVertical: 14,
-                paddingHorizontal: 28,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 6,
-                shadowColor: '#000',
-                shadowOpacity: 0.18,
-                shadowRadius: 12,
-                shadowOffset: { width: 0, height: 4 },
-                elevation: 3,
+                fontFamily: 'DMSans_700Bold',
+                fontSize: 15,
+                color: C.heroTop,
               }}
             >
-              <Plus size={16} color={C.heroTop} />
-              <Text
-                style={{
-                  fontFamily: 'DMSans_700Bold',
-                  fontSize: 15,
-                  color: C.heroTop,
-                }}
-              >
-                Create your first goal
-              </Text>
-            </SpringPressable>
+              Save
+            </Text>
+          </SpringPressable>
+
+          <SpringPressable
+            onPress={() => router.push('/expenses/edit')}
+            haptic
+            style={{
+              flex: 1,
+              backgroundColor: 'rgba(255,255,255,0.16)',
+              borderRadius: 999,
+              paddingVertical: 15,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 7,
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.55)',
+            }}
+          >
+            <Wallet size={17} color="#FFFFFF" strokeWidth={2.5} />
+            <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              style={{
+                fontFamily: 'DMSans_600SemiBold',
+                fontSize: 15,
+                color: '#FFFFFF',
+              }}
+            >
+              Track
+            </Text>
+          </SpringPressable>
           </View>
         </View>
       </ImageBackground>

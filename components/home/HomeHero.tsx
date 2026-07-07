@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Settings } from 'lucide-react-native';
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Plus, Settings, Wallet } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { GestureResponderEvent, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { FlatList, Image, ImageBackground, Text, View, useWindowDimensions, type ImageSourcePropType } from 'react-native';
@@ -12,7 +12,7 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
-import Svg, { Defs, G, LinearGradient as SvgGradient, Line, Path, Polyline, Rect, Stop, Text as SvgText } from 'react-native-svg';
+import Svg, { G, Line, Path, Polyline } from 'react-native-svg';
 
 import { AnimatedNumber } from '@/components/AnimatedNumber';
 import { AvatarVisual } from '@/components/AvatarVisual';
@@ -22,7 +22,6 @@ import type { CurrencyCode } from '@/lib/currency';
 import { convertCents, getCachedRates, getFxRates } from '@/lib/expenses/fx';
 import { useAvatarStore } from '@/lib/stores/avatar';
 import { useExpenseTransactionsStore } from '@/lib/stores/expense-transactions';
-import { useLoansStore } from '@/lib/stores/loans';
 import { useMoneyboxesStore } from '@/lib/stores/moneyboxes';
 import { usePersonalizationStore, type HeroBackground } from '@/lib/stores/personalization';
 import { useProfileStore } from '@/lib/stores/profile';
@@ -30,9 +29,14 @@ import { useAppTheme } from '@/lib/stores/theme';
 import { getTheme } from '@/lib/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const CHART_HEIGHT = 170;
+const CHART_HEIGHT = 196;
 const CHART_PAD_BOTTOM = 26;
 const CHART_PAD_TOP = 12;
+
+// The hero is pinned to a fixed 3:4 portrait box (height = width × 4/3) so the
+// background image crops identically on every device. Design hero backgrounds
+// at 3:4 (e.g. 1086 × 1448) to fill it with no cropping.
+const HERO_ASPECT_H_OVER_W = 4 / 3;
 
 // Image-backed hero backgrounds. Any key present here renders as a full-bleed
 // ImageBackground; anything else (i.e. 'default') falls back to the brand
@@ -44,7 +48,7 @@ const HERO_IMAGE_SOURCES: Partial<Record<HeroBackground, ImageSourcePropType>> =
   'forest-peek': require('@/assets/home/hero-forest-peek-bg.webp'),
 };
 
-type HeroView = 'stash' | 'spend' | 'owe';
+type HeroView = 'stash' | 'spend';
 
 interface ViewMeta {
   key: HeroView;
@@ -60,7 +64,6 @@ interface ViewMeta {
 const VIEWS: readonly ViewMeta[] = [
   { key: 'stash', verb: 'Saved', verbLong: 'Saved', navLabel: 'Stash', deltaPolarity: 'positive_good' },
   { key: 'spend', verb: 'Spent', verbLong: 'Spent', navLabel: 'Expenses', deltaPolarity: 'positive_bad' },
-  { key: 'owe', verb: 'Paid', verbLong: 'Paid down', navLabel: 'Loan', deltaPolarity: 'positive_good' },
 ];
 
 type Range = 'week' | 'month' | '3months';
@@ -82,6 +85,16 @@ interface ChartSeries {
   color: string;
   values: number[];
   label?: string;
+}
+
+/** Per-page empty state: shown instead of the $0 number + blank chart when
+ *  the page has nothing behind it yet. */
+interface HeroEmptyState {
+  eyebrow: string;
+  title: string;
+  cta: string;
+  icon: 'plus' | 'wallet';
+  onPress: () => void;
 }
 
 interface ViewData {
@@ -158,8 +171,6 @@ export function HomeHero() {
 
   const moneyboxes = useMoneyboxesStore((s) => s.moneyboxes);
   const cellsByMoneybox = useMoneyboxesStore((s) => s.cellsByMoneybox);
-  const loans = useLoansStore((s) => s.loans);
-  const paymentsByLoan = useLoansStore((s) => s.paymentsByLoan);
   const transactions = useExpenseTransactionsStore((s) => s.transactions);
 
   // Personalization — user can opt into the painted-frame illustration as
@@ -262,44 +273,18 @@ export function HomeHero() {
       { id: 'expense', color: '#FCA5A5', values: expenseSeries, label: 'Expense' },
     ];
 
-    // ── OWE (paid down) ──
-    const dailyRepaidCents = new Array(days).fill(0);
-    let oweBig = 0;
-    let owePrev = 0;
-    for (const loan of loans) {
-      const ps = paymentsByLoan[loan.id] ?? [];
-      for (const p of ps) {
-        const idx = window.indexOf(p.paymentDate);
-        if (idx >= 0) dailyRepaidCents[idx] += p.principalCents;
-        const principal = p.principalCents / 100;
-        if (curSet.has(p.paymentDate)) oweBig += principal;
-        if (prevSet.has(p.paymentDate)) owePrev += principal;
-      }
-    }
-    const repaid: number[] = new Array(days).fill(0);
-    let runningRepaid = 0;
-    for (let i = 0; i < days; i++) {
-      runningRepaid += dailyRepaidCents[i] / 100;
-      repaid[i] = runningRepaid;
-    }
-    const oweSeries: ChartSeries[] = [
-      { id: 'repaid', color: '#B2EEB8', values: repaid, label: 'Repaid' },
-    ];
-
     const dataByView: Record<HeroView, ViewData> = {
       stash: { series: stashOut, big: stashBig, prev: stashPrev, hasData: stashHasData },
       spend: { series: spendSeries, big: spendBig, prev: spendPrev, hasData: ri > 0 || re > 0 },
-      owe: { series: oweSeries, big: oweBig, prev: owePrev, hasData: runningRepaid > 0 },
     };
 
     return { dataByView, window, days };
-  }, [range, moneyboxes, cellsByMoneybox, loans, paymentsByLoan, transactions, displayCcy]);
+  }, [range, moneyboxes, cellsByMoneybox, transactions, displayCcy]);
 
   // Y-axis shared per page (each page maxes against its own series).
   const yMaxByView: Record<HeroView, number> = {
     stash: niceCeil(dataByView.stash.series.reduce((m, s) => Math.max(m, ...s.values), 0)),
     spend: niceCeil(dataByView.spend.series.reduce((m, s) => Math.max(m, ...s.values), 0)),
-    owe: niceCeil(dataByView.owe.series.reduce((m, s) => Math.max(m, ...s.values), 0)),
   };
 
   const datePositions =
@@ -325,9 +310,36 @@ export function HomeHero() {
     setActiveIdx(idx);
   };
 
+  // Per-page empty states: a page with nothing behind it gets a clear next
+  // action instead of a $0 headline over a flat chart.
+  const hasActiveBox = moneyboxes.some((b) => b.status === 'active');
+  const emptyByView: Record<HeroView, HeroEmptyState | null> = {
+    stash: hasActiveBox
+      ? null
+      : {
+          eyebrow: 'START SAVING',
+          title: 'No stash yet',
+          cta: 'Create a stash',
+          icon: 'plus',
+          onPress: () => router.push('/create'),
+        },
+    spend: transactions.length > 0
+      ? null
+      : {
+          eyebrow: 'TRACK SPENDING',
+          title: 'Nothing logged yet',
+          cta: 'Log a transaction',
+          icon: 'wallet',
+          onPress: () => router.push('/expenses/edit'),
+        },
+  };
+
+  // Fixed 3:4 box → predictable background crop across devices.
+  const heroHeight = Math.round(screenWidth * HERO_ASPECT_H_OVER_W);
   const heroShellStyle = {
+    height: heroHeight,
     paddingTop: insets.top + 12,
-    paddingBottom: 18,
+    paddingBottom: 24,
     overflow: 'hidden' as const,
   };
 
@@ -461,9 +473,9 @@ export function HomeHero() {
           </SpringPressable>
         </View>
 
-        {/* Spacer — preserves the hero height the range filter used to take
-         *  up (filter row was ~30px tall + 14px marginTop = ~44px). */}
-        <View style={{ height: 44 }} />
+        {/* Spacer between the top chrome and the headline — sized so the
+         *  eyebrow + number + chart fit inside the fixed 3:4 hero box. */}
+        <View style={{ height: 48 }} />
 
         {/* Horizontal pager — 3 pages, one per view */}
         <AnimatedFlatList
@@ -491,6 +503,7 @@ export function HomeHero() {
                 datePositions={datePositions}
                 screenWidth={screenWidth}
                 displayCcy={displayCcy}
+                empty={emptyByView[meta.key]}
               />
             );
           }}
@@ -512,60 +525,70 @@ export function HomeHero() {
           position: 'absolute',
           left: 0,
           right: 0,
-          bottom: -18,
+          bottom: -14,
           alignItems: 'center',
         }}
       >
+        {/* Shadow lives on the outer wrapper; the inner view clips to the pill
+         *  shape (overflow:hidden can't cast a shadow itself). */}
         <View
           style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            backgroundColor: '#FFFFFF',
             borderRadius: 999,
-            paddingHorizontal: 14,
-            paddingVertical: 9,
-            gap: 14,
             shadowColor: '#000',
-            shadowOpacity: 0.18,
+            shadowOpacity: 0.14,
             shadowRadius: 10,
             shadowOffset: { width: 0, height: 4 },
             elevation: 6,
           }}
         >
-          <SpringPressable
-            onPress={() => goTo(activeIdx - 1)}
-            disabled={activeIdx === 0}
-            haptic
+          <View
             style={{
-              opacity: activeIdx === 0 ? 0.25 : 1,
-              padding: 2,
+              flexDirection: 'row',
+              alignItems: 'center',
+              borderRadius: 999,
+              overflow: 'hidden',
+              paddingHorizontal: 6,
+              gap: 4,
+              backgroundColor: '#FFFFFF',
             }}
           >
-            <ChevronLeft size={16} color="#06291F" />
-          </SpringPressable>
-          <Text
-            style={{
-              fontFamily: 'DMSans_700Bold',
-              fontSize: 11,
-              color: '#06291F',
-              letterSpacing: 1.2,
-              minWidth: 72,
-              textAlign: 'center',
-            }}
-          >
-            {(VIEWS[activeIdx]?.navLabel ?? '').toUpperCase()}
-          </Text>
-          <SpringPressable
-            onPress={() => goTo(activeIdx + 1)}
-            disabled={activeIdx === VIEWS.length - 1}
-            haptic
-            style={{
-              opacity: activeIdx === VIEWS.length - 1 ? 0.25 : 1,
-              padding: 2,
-            }}
-          >
-            <ChevronRight size={16} color="#06291F" />
-          </SpringPressable>
+            <SpringPressable
+              onPress={() => goTo(activeIdx - 1)}
+              disabled={activeIdx === 0}
+              haptic
+              style={{
+                opacity: activeIdx === 0 ? 0.3 : 1,
+                paddingVertical: 7,
+                paddingHorizontal: 9,
+              }}
+            >
+              <ChevronLeft size={16} color="#06291F" />
+            </SpringPressable>
+            <Text
+              style={{
+                fontFamily: 'DMSans_700Bold',
+                fontSize: 11,
+                color: '#06291F',
+                letterSpacing: 1.2,
+                minWidth: 52,
+                textAlign: 'center',
+              }}
+            >
+              {(VIEWS[activeIdx]?.navLabel ?? '').toUpperCase()}
+            </Text>
+            <SpringPressable
+              onPress={() => goTo(activeIdx + 1)}
+              disabled={activeIdx === VIEWS.length - 1}
+              haptic
+              style={{
+                opacity: activeIdx === VIEWS.length - 1 ? 0.3 : 1,
+                paddingVertical: 7,
+                paddingHorizontal: 9,
+              }}
+            >
+              <ChevronRight size={16} color="#06291F" />
+            </SpringPressable>
+          </View>
         </View>
       </View>
     </View>
@@ -586,15 +609,76 @@ interface HeroPageProps {
   datePositions: readonly number[];
   screenWidth: number;
   displayCcy: CurrencyCode;
+  empty?: HeroEmptyState | null;
 }
 
-function HeroPage({ meta, range, data, yMax, window, days, datePositions, screenWidth, displayCcy }: HeroPageProps) {
+function HeroPage({ meta, range, data, yMax, window, days, datePositions, screenWidth, displayCcy, empty }: HeroPageProps) {
   const { series, big, prev, hasData } = data;
 
   // When the user scrubs the chart, the hero header becomes a live readout
   // of the touched date instead of the period summary.
   const [cursorIdx, setCursorIdx] = useState<number | null>(null);
   const scrubbing = cursorIdx !== null;
+
+  // Nothing behind this page yet → a clear next action instead of $0 + a
+  // flat line. This return sits AFTER every hook in this component, so the
+  // hook order is stable when `empty` flips.
+  if (empty) {
+    const EmptyIcon = empty.icon === 'plus' ? Plus : Wallet;
+    return (
+      <View style={{ width: screenWidth, alignItems: 'center', paddingHorizontal: 32 }}>
+        <Animated.View entering={FadeIn.duration(200)} style={{ alignItems: 'center', marginTop: 40 }}>
+          <Text
+            style={{
+              fontFamily: 'DMSans_500Medium',
+              fontSize: 9,
+              color: 'rgba(255,255,255,0.55)',
+              letterSpacing: 0.8,
+              textAlign: 'center',
+            }}
+          >
+            {empty.eyebrow}
+          </Text>
+          <Text
+            style={{
+              fontFamily: 'DMSans_700Bold',
+              fontSize: 26,
+              color: '#FFFFFF',
+              letterSpacing: -0.5,
+              marginTop: 8,
+              textAlign: 'center',
+            }}
+          >
+            {empty.title}
+          </Text>
+          <SpringPressable
+            onPress={empty.onPress}
+            haptic
+            style={{
+              marginTop: 22,
+              backgroundColor: '#FFFFFF',
+              borderRadius: 999,
+              paddingVertical: 13,
+              paddingHorizontal: 24,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 7,
+              shadowColor: '#000',
+              shadowOpacity: 0.18,
+              shadowRadius: 12,
+              shadowOffset: { width: 0, height: 4 },
+              elevation: 3,
+            }}
+          >
+            <EmptyIcon size={16} color="#06291F" strokeWidth={2.5} />
+            <Text style={{ fontFamily: 'DMSans_700Bold', fontSize: 15, color: '#06291F' }}>
+              {empty.cta}
+            </Text>
+          </SpringPressable>
+        </Animated.View>
+      </View>
+    );
+  }
 
   const deltaRaw = big - prev;
   const showDelta = !scrubbing && Math.abs(deltaRaw) >= 1 && prev > 0;
@@ -733,7 +817,6 @@ function HeroPage({ meta, range, data, yMax, window, days, datePositions, screen
           chartOuterWidth={screenWidth}
           displayCcy={displayCcy}
           datePositions={datePositions}
-          singleSeriesFill={meta.key === 'owe'}
           onCursorChange={setCursorIdx}
         />
       </View>
@@ -833,7 +916,6 @@ interface InteractiveChartProps {
   chartOuterWidth: number;
   displayCcy: CurrencyCode;
   datePositions: readonly number[];
-  singleSeriesFill: boolean;
   /** Notified when the user is scrubbing across the chart, so the parent
    *  (hero header) can swap its big-number + eyebrow to the touched date. */
   onCursorChange?: (idx: number | null) => void;
@@ -846,7 +928,6 @@ function InteractiveChart({
   chartOuterWidth,
   displayCcy,
   datePositions,
-  singleSeriesFill,
   onCursorChange,
 }: InteractiveChartProps) {
   const [cursorIdx, setCursorIdx] = useState<number | null>(null);
@@ -899,19 +980,6 @@ function InteractiveChart({
     s.values.length > 1 ? s.values.map((v, i) => `${toX(i).toFixed(2)},${toY(v).toFixed(2)}`).join(' ') : '',
   );
 
-  const areaPath = (() => {
-    if (!singleSeriesFill) return '';
-    const s = series[0];
-    if (!s || s.values.length < 2) return '';
-    const top = s.values
-      .map((v, i) => `${i === 0 ? 'M' : 'L'} ${toX(i).toFixed(2)} ${toY(v).toFixed(2)}`)
-      .join(' ');
-    const firstX = toX(0);
-    const lastX = toX(s.values.length - 1);
-    const bottomY = CHART_PAD_TOP + usableH;
-    return `${top} L ${lastX.toFixed(2)} ${bottomY} L ${firstX.toFixed(2)} ${bottomY} Z`;
-  })();
-
   return (
     <View
       onMoveShouldSetResponder={() => true}
@@ -921,16 +989,6 @@ function InteractiveChart({
       style={{ width: chartOuterWidth, height: CHART_HEIGHT }}
     >
       <Svg width={chartOuterWidth} height={CHART_HEIGHT}>
-        <Defs>
-          <SvgGradient id="loanArea" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor={brighten('#B2EEB8')} stopOpacity={0.28} />
-            <Stop offset="0.6" stopColor={brighten('#7DF3C2')} stopOpacity={0.08} />
-            <Stop offset="1" stopColor={brighten('#7DF3C2')} stopOpacity={0} />
-          </SvgGradient>
-        </Defs>
-
-        {areaPath && <Path d={areaPath} fill="url(#loanArea)" />}
-
         {series.map((s, sIdx) => {
           const pts = seriesPoints[sIdx];
           if (!pts) return null;

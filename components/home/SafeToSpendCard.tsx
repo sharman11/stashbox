@@ -1,9 +1,7 @@
 import { useRouter } from 'expo-router';
 import { ChevronRight, Wallet } from 'lucide-react-native';
-import { useState } from 'react';
-import { LayoutChangeEvent, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import Svg, { Line } from 'react-native-svg';
 
 import { CardEyebrow, HomeCard } from '@/components/home/HomeCard';
 import { SpringPressable } from '@/components/SpringPressable';
@@ -57,7 +55,6 @@ export function SafeToSpendCard() {
     <HomeCard onPress={() => router.push('/expenses/budgets' as never)} delay={100} padding={18} contentStyle={{ gap: 14 }}>
       <CardEyebrow
         label="SAFE TO SPEND TODAY"
-        icon={<Wallet size={13} color={dim} />}
         right={
           <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, backgroundColor: paceColor + '18' }}>
             <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 10, color: paceColor }}>{paceLabel}</Text>
@@ -87,23 +84,13 @@ export function SafeToSpendCard() {
 }
 
 /* ──────────────────────────────────────────────────────────────────────
- * Segmented spend bar over a tick ruler.
+ * Segmented spend bar.
  * ──────────────────────────────────────────────────────────────────── */
 
 function SpendLimitBar({ data }: { data: SafeToSpend }) {
   const C = useAppTheme();
-  const [width, setWidth] = useState(0);
-  const onLayout = (e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width);
-
   const { segments, capCents, spentCents, overBudget, currency } = data;
   const denom = overBudget ? Math.max(1, spentCents) : Math.max(1, capCents);
-
-  const tickCount = width > 0 ? Math.max(12, Math.floor(width / 6)) : 0;
-  const ticks = [];
-  for (let i = 0; i < tickCount; i++) {
-    const x = (i / (tickCount - 1)) * (width - 1) + 0.5;
-    ticks.push(<Line key={i} x1={x} y1={1} x2={x} y2={8} stroke={C.textMuted} strokeOpacity={0.35} strokeWidth={1} />);
-  }
 
   return (
     <View style={{ gap: 8 }}>
@@ -120,14 +107,6 @@ function SpendLimitBar({ data }: { data: SafeToSpend }) {
         {segments.map((seg, i) => (
           <View key={i} style={{ width: `${Math.max(0, (seg.cents / denom) * 100)}%`, backgroundColor: seg.color }} />
         ))}
-      </View>
-
-      <View onLayout={onLayout} style={{ height: 9 }}>
-        {width > 0 && (
-          <Svg width={width} height={9}>
-            {ticks}
-          </Svg>
-        )}
       </View>
 
       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
