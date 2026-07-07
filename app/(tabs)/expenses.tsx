@@ -7,6 +7,7 @@ import {
   Download,
   FolderTree,
   Plus,
+  Settings,
   Target,
   Wallet,
 } from 'lucide-react-native';
@@ -305,6 +306,9 @@ export default function ExpensesScreen() {
               </HeroIconButton>
               <HeroIconButton label="Export CSV" onPress={onExport}>
                 <Download size={18} color="#FFFFFF" />
+              </HeroIconButton>
+              <HeroIconButton label="Settings" onPress={() => router.push('/(tabs)/settings')}>
+                <Settings size={18} color="#FFFFFF" />
               </HeroIconButton>
             </View>
           </View>
