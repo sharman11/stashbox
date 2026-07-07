@@ -8,11 +8,11 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronUp,
-  Landmark,
   Lock,
   MapPin,
   Palette,
   PiggyBank,
+  Search,
   Target,
   X,
 } from 'lucide-react-native';
@@ -26,6 +26,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { CurrencyPicker } from '@/components/CurrencyPicker';
 import { CustomAlert } from '@/components/CustomAlert';
 import { IconPicker } from '@/components/IconPicker';
 import { SpringPressable } from '@/components/SpringPressable';
@@ -41,7 +42,7 @@ import {
   RewardedAd,
   RewardedAdEventType,
 } from '@/lib/ads-placeholder';
-import { computeLimits, canCreate, maxForCurrency, MAX_CURRENCIES } from '@/lib/moneybox-limits';
+import { computeLimits, canCreate, maxForCurrency } from '@/lib/moneybox-limits';
 import {
   CURRENCY_LIST,
   MAX_DAYS,
@@ -59,8 +60,6 @@ import {
 } from '@/lib/currency';
 import type { CurrencyCode } from '@/lib/currency';
 import { MAX_COLS, MIN_COLS, suggestCols } from '@/lib/grid';
-import { formatCents } from '@/lib/loans/math';
-import { useLoansStore } from '@/lib/stores/loans';
 import { useMoneyboxesStore } from '@/lib/stores/moneyboxes';
 import { useProfileStore } from '@/lib/stores/profile';
 import { useSessionStore } from '@/lib/stores/session';
@@ -217,16 +216,11 @@ function StepIndicator({ current }: { current: number }) {
 export default function CreateScreen() {
   const C = useAppTheme();
   const router = useRouter();
-  // Optional deep-link params: a loan-side "Start a Payoff Booster" suggestion
-  // routes here pre-linked (and may pre-fill the name/goal). All optional.
-  const params = useLocalSearchParams<{ linkedLoanId?: string; name?: string; goal?: string }>();
+  // Optional deep-link params: may pre-fill the name/goal. All optional.
+  const params = useLocalSearchParams<{ name?: string; goal?: string }>();
   const { userId } = useSessionStore();
   const { profile } = useProfileStore();
   const { moneyboxes, create } = useMoneyboxesStore();
-  const loans = useLoansStore((s) => s.loans);
-  const loadLoans = useLoansStore((s) => s.loadAll);
-
-  const activeLoans = useMemo(() => loans.filter((l) => l.status === 'active'), [loans]);
 
   const bonusCurrency = useLimitsStore((s) => s.bonusCurrency);
   const grantBonus = useLimitsStore((s) => s.grantBonus);
@@ -246,18 +240,14 @@ export default function CreateScreen() {
 
   const [step, setStep] = useState<0 | 1 | 2 | 3 | 4>(0);
   const [name, setName] = useState(params.name ? String(params.name).slice(0, NAME_MAX) : '');
-  // Optional "Payoff Booster" link to a student loan. Seeded from the deep-link
-  // param; the user can also pick/clear it on the Goal step.
-  const [linkedLoanId, setLinkedLoanId] = useState<string | null>(params.linkedLoanId ?? null);
-  const [showLoanLink, setShowLoanLink] = useState<boolean>(Boolean(params.linkedLoanId));
-  const [icon, setIcon] = useState<string>(params.linkedLoanId ? '🎯' : '💰');
+  const [icon, setIcon] = useState<string>('💰');
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [stashSpotId, setStashSpotId] = useState<string>(DEFAULT_STASH_SPOT_ID);
   const [stashPickerOpen, setStashPickerOpen] = useState(false);
   const [currency, setCurrencyRaw] = useState<CurrencyCode>(profile?.defaultCurrency ?? 'USD');
+  const [currencyPickerOpen, setCurrencyPickerOpen] = useState(false);
   const [goalText, setGoalText] = useState(params.goal ? String(params.goal).replace(/[^0-9]/g, '') : '');
   const [daysText, setDaysText] = useState('');
-  const [showAllCurrencies, setShowAllCurrencies] = useState(false);
   const [showAdvancedTimeline, setShowAdvancedTimeline] = useState(false);
 
   const setCurrency = (code: CurrencyCode) => {
@@ -337,14 +327,6 @@ export default function CreateScreen() {
   const ensureCurrencyUnlocked = (): Promise<boolean> =>
     new Promise((resolve) => {
       const check = canCreate(limits, currency);
-
-      console.log('[ensureCurrencyUnlocked]', {
-        currency,
-        bonusCurrency,
-        countPerCurrency: Object.fromEntries(limits.countPerCurrency),
-        distinctCurrencies: [...limits.distinctCurrencies],
-        check,
-      });
 
       if (check.allowed) {
         resolve(true);
@@ -451,11 +433,6 @@ export default function CreateScreen() {
 
   const adsReady = useAdsStore((s) => s.ready);
 
-  // Load loans so the optional "Payoff Booster" link can list them.
-  useEffect(() => {
-    if (userId) loadLoans(userId);
-  }, [userId, loadLoans]);
-
   useEffect(() => {
     // Wait for the SDK to finish initializing before requesting ads.
     if (!adsReady) return;
@@ -497,19 +474,15 @@ export default function CreateScreen() {
   const practicalMax = useMemo(() => getPracticalMaxNote(currency), [currency]);
   const quickGoals = QUICK_GOALS[currency] ?? QUICK_GOALS.DEFAULT;
 
-  // Currencies the user has opted into + any currencies that have moneyboxes (active or completed)
-  // so users always see the things relevant to them up top, and the rest is hidden behind a toggle.
+  // Currencies the user has opted into + any currencies that have moneyboxes
+  // (active or completed) so users see relevant ones up top; the rest live in
+  // the searchable picker behind "All".
   const preferredCurrencyCodes = useMemo<CurrencyCode[]>(() => {
     const set = new Set<CurrencyCode>(profile?.preferredCurrencies ?? []);
     for (const m of moneyboxes) set.add(m.currency);
     if (set.size === 0) set.add('USD');
     return Array.from(set);
   }, [profile?.preferredCurrencies, moneyboxes]);
-
-  const otherCurrencies = useMemo(
-    () => CURRENCY_LIST.filter((c) => !preferredCurrencyCodes.includes(c.code)),
-    [preferredCurrencyCodes],
-  );
 
   const preferredCurrencies = useMemo(
     () => preferredCurrencyCodes.map((code) => CURRENCY_LIST.find((c) => c.code === code)!).filter(Boolean),
@@ -536,8 +509,6 @@ export default function CreateScreen() {
         targetDays: days,
         gridCols: activeCols,
         notes,
-        // Only persist the link if the chosen loan is still active.
-        linkedLoanId: activeLoans.some((l) => l.id === linkedLoanId) ? linkedLoanId : null,
       });
       if (interstitialReady.current) {
         try {
@@ -632,39 +603,45 @@ export default function CreateScreen() {
                 Name your moneybox
               </Text>
 
-              {/* Quick picks - set name AND icon */}
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {/* Quick picks — small pill chips in a horizontal scroll at the
+                  top. Tap one to fill both the name and icon in a single tap. */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{ gap: 8, paddingRight: 4 }}
+              >
                 {GOAL_TEMPLATES.map((t) => {
-                  const selected = name === t.label;
-                  return (
-                    <Pressable
-                      key={t.label}
-                      onPress={() => {
-                        setName(t.label);
-                        setIcon(t.icon);
-                      }}
-                      style={{
-                        backgroundColor: selected ? C.buttonPrimaryBg : C.surface,
-                        borderRadius: 12,
-                        paddingHorizontal: 12,
-                        paddingVertical: 10,
-                        borderWidth: 1,
-                        borderColor: selected ? C.buttonPrimaryBg : C.border,
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 6,
-                      }}
-                    >
-                      <Text style={{ fontSize: 16 }}>{t.icon}</Text>
-                      <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 13, color: selected ? C.buttonPrimaryText : C.textPrimary }}>
-                        {t.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+                    const selected = name === t.label;
+                    return (
+                      <Pressable
+                        key={t.label}
+                        onPress={() => {
+                          setName(t.label);
+                          setIcon(t.icon);
+                        }}
+                        style={{
+                          backgroundColor: selected ? C.buttonPrimaryBg : C.surface,
+                          borderRadius: 999,
+                          paddingHorizontal: 12,
+                          paddingVertical: 7,
+                          borderWidth: 1,
+                          borderColor: selected ? C.buttonPrimaryBg : C.border,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 5,
+                        }}
+                      >
+                        <Text style={{ fontSize: 14 }}>{t.icon}</Text>
+                        <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 12, color: selected ? C.buttonPrimaryText : C.textPrimary }}>
+                          {t.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+              </ScrollView>
 
-              {/* Custom name + icon */}
+              {/* Name input — tap the icon tile to change the emoji. */}
               <View>
                 <View
                   style={{
@@ -701,7 +678,7 @@ export default function CreateScreen() {
                       // Defensive slice in addition to maxLength — Android
                       // autofill / IME paste can occasionally bypass maxLength.
                       onChangeText={(v) => setName(v.slice(0, NAME_MAX))}
-                      placeholder="Or type your own..."
+                      placeholder="Name your stashbox"
                       placeholderTextColor={C.textFaint}
                       maxLength={NAME_MAX}
                       style={{
@@ -728,7 +705,9 @@ export default function CreateScreen() {
                 )}
               </View>
 
-              {/* Currency */}
+              {/* Currency — pick one for this stashbox. The slot meter shows
+                  the "up to 3 currencies" budget; quick chips cover the user's
+                  currencies, and "All" opens the searchable picker. */}
               <View>
                 <Text
                   style={{
@@ -736,12 +715,18 @@ export default function CreateScreen() {
                     fontSize: 11,
                     color: C.textMuted,
                     letterSpacing: 0.5,
-                    marginBottom: 8,
+                    marginBottom: 10,
                   }}
                 >
-                  CURRENCY · {limits.distinctCurrencies.size}/{MAX_CURRENCIES}
+                  CURRENCY
                 </Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                  contentContainerStyle={{ gap: 8, paddingRight: 4 }}
+                >
                   {preferredCurrencies.map((c) => (
                     <CurrencyPill
                       key={c.code}
@@ -754,45 +739,25 @@ export default function CreateScreen() {
                     />
                   ))}
                   <SpringPressable
-                    onPress={() => setShowAllCurrencies((v) => !v)}
+                    onPress={() => setCurrencyPickerOpen(true)}
                     style={{
                       flexDirection: 'row',
                       alignItems: 'center',
-                      gap: 4,
+                      gap: 5,
                       borderRadius: 12,
-                      paddingHorizontal: 12,
+                      paddingHorizontal: 14,
                       paddingVertical: 10,
                       borderWidth: 1,
                       borderColor: C.border,
                       borderStyle: 'dashed',
                     }}
                   >
+                    <Search size={13} color={C.accent} />
                     <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 13, color: C.accent }}>
-                      {showAllCurrencies ? 'Hide' : 'Other'}
+                      All
                     </Text>
-                    {showAllCurrencies ? (
-                      <ChevronUp size={12} color={C.accent} />
-                    ) : (
-                      <ChevronDown size={12} color={C.accent} />
-                    )}
                   </SpringPressable>
-                </View>
-
-                {showAllCurrencies && otherCurrencies.length > 0 && (
-                  <View style={{ marginTop: 10, flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                    {otherCurrencies.map((c) => (
-                      <CurrencyPill
-                        key={c.code}
-                        code={c.code}
-                        flag={c.flag}
-                        selected={currency === c.code}
-                        limits={limits}
-                        unlockInFlight={unlockInFlight}
-                        onPress={handleCurrencyTap}
-                      />
-                    ))}
-                  </View>
-                )}
+                </ScrollView>
               </View>
 
             </View>
@@ -1045,89 +1010,6 @@ export default function CreateScreen() {
                 </View>
               </View>
 
-              {/* Optional: turn this into a "Payoff Booster" for a loan.
-               *  Collapsed by default (mirrors the timeline's advanced toggle);
-               *  only shown when the user actually has active loans. */}
-              {activeLoans.length > 0 && (
-                <View>
-                  <SpringPressable
-                    onPress={() => setShowLoanLink((v) => !v)}
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
-                  >
-                    <Landmark size={14} color={C.accent} />
-                    <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 13, color: C.accent }}>
-                      {linkedLoanId ? 'Linked to a loan' : 'Paying off a loan? Link this vault'}
-                    </Text>
-                    {showLoanLink ? (
-                      <ChevronUp size={12} color={C.accent} />
-                    ) : (
-                      <ChevronDown size={12} color={C.accent} />
-                    )}
-                  </SpringPressable>
-
-                  {showLoanLink && (
-                    <View style={{ marginTop: 10, gap: 8 }}>
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                        {activeLoans.map((l) => {
-                          const selected = linkedLoanId === l.id;
-                          return (
-                            <Pressable
-                              key={l.id}
-                              onPress={() => setLinkedLoanId(selected ? null : l.id)}
-                              style={{
-                                backgroundColor: selected ? C.accent : C.surface,
-                                borderRadius: 12,
-                                paddingHorizontal: 12,
-                                paddingVertical: 10,
-                                borderWidth: 1,
-                                borderColor: selected ? C.accent : C.border,
-                                maxWidth: '100%',
-                              }}
-                            >
-                              <Text
-                                numberOfLines={1}
-                                style={{
-                                  fontFamily: 'DMSans_600SemiBold',
-                                  fontSize: 13,
-                                  color: selected ? '#FFFFFF' : C.textPrimary,
-                                }}
-                              >
-                                {l.nickname}
-                              </Text>
-                              <Text
-                                numberOfLines={1}
-                                style={{
-                                  fontFamily: 'DMSans_400Regular',
-                                  fontSize: 11,
-                                  color: selected ? 'rgba(255,255,255,0.85)' : C.textMuted,
-                                  marginTop: 1,
-                                }}
-                              >
-                                {formatCents(l.currentBalanceCents)} left
-                              </Text>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                      {linkedLoanId && (
-                        <Text
-                          style={{
-                            fontFamily: 'DMSans_400Regular',
-                            fontSize: 12,
-                            color: C.textMuted,
-                            lineHeight: 18,
-                          }}
-                        >
-                          When this vault fills up, we&apos;ll suggest applying it as an
-                          extra payment — paying the loan off faster. You stay in control;
-                          nothing moves on its own.
-                        </Text>
-                      )}
-                    </View>
-                  )}
-                </View>
-              )}
-
             </View>
           )}
 
@@ -1364,23 +1246,6 @@ export default function CreateScreen() {
                   >
                     {formatAmount(goal, currency)} · {days} days
                   </Text>
-                  {(() => {
-                    const linked = activeLoans.find((l) => l.id === linkedLoanId);
-                    if (!linked) return null;
-                    return (
-                      <Text
-                        style={{
-                          fontFamily: 'DMSans_500Medium',
-                          fontSize: 12,
-                          color: C.accent,
-                          marginTop: 3,
-                        }}
-                        numberOfLines={1}
-                      >
-                        🎯 Booster for {linked.nickname}
-                      </Text>
-                    );
-                  })()}
                 </View>
               </View>
 
@@ -1559,6 +1424,18 @@ export default function CreateScreen() {
           setStashPickerOpen(false);
         }}
         onCancel={() => setStashPickerOpen(false)}
+      />
+      <CurrencyPicker
+        visible={currencyPickerOpen}
+        current={currency}
+        limits={limits}
+        onSelect={(code) => {
+          // Reuse the same tap logic as the inline chips: selects the currency
+          // (ad-gated currencies are selected here and the ad fires on Next).
+          handleCurrencyTap(code);
+          setCurrencyPickerOpen(false);
+        }}
+        onCancel={() => setCurrencyPickerOpen(false)}
       />
     </View>
   );
