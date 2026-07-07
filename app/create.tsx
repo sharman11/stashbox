@@ -926,7 +926,7 @@ export default function CreateScreen() {
               {goal > 0 && !goalInRange && (
                 <View
                   style={{
-                    backgroundColor: '#FEF2F2',
+                    backgroundColor: C.errorBg,
                     borderRadius: 14,
                     padding: 12,
                     flexDirection: 'row',
@@ -960,7 +960,7 @@ export default function CreateScreen() {
 
               {/* Multiple-of-min-unit validation */}
               {goal > 0 && goalInRange && !goalValid && (
-                <View style={{ backgroundColor: '#FEF2F2', borderRadius: 14, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={{ backgroundColor: C.errorBg, borderRadius: 14, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <AlertCircle size={16} color="#EF4444" />
                   <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 12, color: '#DC2626', flex: 1, lineHeight: 18 }}>
                     Enter a multiple of {formatAmount(minUnit, currency)}.
@@ -1077,7 +1077,7 @@ export default function CreateScreen() {
               {validation && !validation.valid && (
                 <View
                   style={{
-                    backgroundColor: '#FEF2F2',
+                    backgroundColor: C.errorBg,
                     borderRadius: 12,
                     padding: 12,
                     flexDirection: 'row',

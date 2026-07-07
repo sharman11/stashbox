@@ -127,7 +127,7 @@ export default function PaywallScreen() {
           </Text>
         </View>
         <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 15, color: C.textSecondary, marginTop: 8, lineHeight: 21 }}>
-          Turn your numbers into decisions — and reach your goals faster.
+          Turn your numbers into decisions and reach your goals faster.
         </Text>
 
         <View style={{ gap: 12, marginTop: 24 }}>
@@ -153,6 +153,24 @@ export default function PaywallScreen() {
                 RevenueCat isn’t configured yet. {isPro ? 'Stashbox+ is currently simulated as active.' : 'Activate to simulate a subscription and test the Stashbox+ features.'}
               </Text>
             </View>
+          ) : isPro ? (
+            <View
+              style={{
+                padding: 16,
+                borderRadius: 16,
+                backgroundColor: C.accent + '12',
+                borderWidth: 1,
+                borderColor: C.accent + '33',
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 10,
+              }}
+            >
+              <Check size={18} color={C.accent} strokeWidth={2.5} />
+              <Text style={{ flex: 1, fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: C.textPrimary }}>
+                Stashbox+ is active on this account.
+              </Text>
+            </View>
           ) : loading ? (
             <ActivityIndicator color={C.accent} style={{ marginVertical: 24 }} />
           ) : !offering || offering.availablePackages.length === 0 ? (
@@ -162,11 +180,18 @@ export default function PaywallScreen() {
           ) : (
             offering.availablePackages.map((pkg) => {
               const active = selected?.identifier === pkg.identifier;
+              // Annual is the value plan whenever a shorter period exists.
+              const bestValue =
+                pkg.packageType === 'ANNUAL' &&
+                offering.availablePackages.some(
+                  (p) => p.packageType === 'MONTHLY' || p.packageType === 'WEEKLY',
+                );
               return (
                 <SpringPressable
                   key={pkg.identifier}
                   onPress={() => setSelected(pkg)}
                   haptic
+                  accessibilityLabel={`${packageLabel(pkg)} plan, ${pkg.product.priceString}`}
                   style={{
                     flexDirection: 'row',
                     alignItems: 'center',
@@ -178,9 +203,25 @@ export default function PaywallScreen() {
                     backgroundColor: active ? C.accent + '12' : C.surfaceElevated,
                   }}
                 >
-                  <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: C.textPrimary }}>
-                    {packageLabel(pkg)}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: C.textPrimary }}>
+                      {packageLabel(pkg)}
+                    </Text>
+                    {bestValue && (
+                      <View
+                        style={{
+                          paddingHorizontal: 8,
+                          paddingVertical: 3,
+                          borderRadius: 999,
+                          backgroundColor: C.accent,
+                        }}
+                      >
+                        <Text style={{ fontFamily: 'DMSans_700Bold', fontSize: 10, color: '#FFFFFF', letterSpacing: 0.4 }}>
+                          BEST VALUE
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                   <Text style={{ fontFamily: 'DMSans_700Bold', fontSize: 15, color: C.textPrimary }}>
                     {pkg.product.priceString}
                   </Text>
@@ -192,7 +233,7 @@ export default function PaywallScreen() {
       </ScrollView>
 
       <View style={{ paddingHorizontal: 24, paddingBottom: insets.bottom + 16, gap: 12 }}>
-        {!(IAP_DUMMY && isPro) && (
+        {!isPro && (
           <SpringPressable
             onPress={onSubscribe}
             haptic
@@ -209,10 +250,31 @@ export default function PaywallScreen() {
               <ActivityIndicator color="#FFFFFF" />
             ) : (
               <Text style={{ fontFamily: 'DMSans_700Bold', fontSize: 16, color: '#FFFFFF' }}>
-                {IAP_DUMMY ? 'Activate Stashbox+ (dev)' : 'Continue'}
+                {/* Price on the button — "Continue" hides the commitment. */}
+                {IAP_DUMMY
+                  ? 'Activate Stashbox+ (dev)'
+                  : selected
+                    ? `Subscribe for ${selected.product.priceString}`
+                    : 'Continue'}
               </Text>
             )}
           </SpringPressable>
+        )}
+        {/* Subscription terms — store review requires these near the buy
+         *  button, and users deserve them anyway. */}
+        {!IAP_DUMMY && (
+          <Text
+            style={{
+              fontFamily: 'DMSans_400Regular',
+              fontSize: 11,
+              color: C.textMuted,
+              textAlign: 'center',
+              lineHeight: 15,
+            }}
+          >
+            Auto-renews until cancelled. Manage or cancel any time in your app
+            store settings.
+          </Text>
         )}
         <SpringPressable onPress={onRestore} haptic disabled={busy} style={{ alignItems: 'center', paddingVertical: 4 }}>
           <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 13, color: C.textSecondary }}>

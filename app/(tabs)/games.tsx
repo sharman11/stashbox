@@ -122,6 +122,7 @@ function GameCard({ game, bestScore }: GameCardProps) {
     <SpringPressable
       onPress={() => router.push(game.route)}
       haptic
+      accessibilityLabel={`Play ${game.name}`}
       style={{
         borderRadius: 22,
         overflow: 'hidden',

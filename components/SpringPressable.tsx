@@ -16,6 +16,10 @@ interface SpringPressableProps {
   disabled?: boolean;
   haptic?: boolean;
   scaleDown?: number;
+  /** Extends the tap area beyond the view bounds (all sides). */
+  hitSlop?: number;
+  /** Screen-reader label; also marks the view as a button. */
+  accessibilityLabel?: string;
 }
 
 const SPRING_CONFIG = { damping: 15, stiffness: 400, mass: 0.8 };
@@ -27,6 +31,8 @@ export function SpringPressable({
   disabled = false,
   haptic = false,
   scaleDown = 0.97,
+  hitSlop,
+  accessibilityLabel,
 }: SpringPressableProps) {
   const scale = useSharedValue(1);
 
@@ -44,6 +50,7 @@ export function SpringPressable({
       scale.value = withSpring(1, SPRING_CONFIG);
       if (success) runOnJS(doPress)();
     });
+  if (hitSlop !== undefined) tap.hitSlop(hitSlop);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -51,7 +58,12 @@ export function SpringPressable({
 
   return (
     <GestureDetector gesture={tap}>
-      <Animated.View style={[style, animatedStyle, disabled && { opacity: 0.5 }]}>
+      <Animated.View
+        style={[style, animatedStyle, disabled && { opacity: 0.5 }]}
+        accessibilityLabel={accessibilityLabel}
+        accessibilityRole={accessibilityLabel ? 'button' : undefined}
+        accessibilityState={accessibilityLabel ? { disabled } : undefined}
+      >
         {children}
       </Animated.View>
     </GestureDetector>

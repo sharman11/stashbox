@@ -5,7 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { ChevronLeft, ChevronRight, Pencil } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import ConfettiCannon from 'react-native-confetti-cannon';
 
@@ -17,7 +17,6 @@ import type { MilestoneKind } from '@/components/MilestoneOverlay';
 import { MilestoneToast } from '@/components/MilestoneToast';
 import { MoneyboxGrid } from '@/components/MoneyboxGrid';
 import { ProgressBar } from '@/components/ProgressBar';
-import { ProgressRing } from '@/components/ProgressRing';
 import { ShareCard } from '@/components/ShareCard';
 import { SpringPressable } from '@/components/SpringPressable';
 import { markTodayActive } from '@/components/StreakSection';
@@ -48,6 +47,7 @@ type SmallMilestone = 25 | 50 | 75;
 
 export default function MoneyboxDetailScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const {
     moneyboxes,
@@ -436,11 +436,22 @@ export default function MoneyboxDetailScreen() {
             decoration={theme.decoration}
             seed={(moneybox.id.charCodeAt(0) || 0) + (moneybox.id.charCodeAt(1) || 0)}
           />
-          {/* Back + vault name + edit */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 56, gap: 10 }}>
+          {/* Back + vault name + edit. Safe-area-derived top padding — the old
+           *  hardcoded 56 clipped on tall notches and wasted space on none. */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingHorizontal: 16,
+              paddingTop: insets.top + 12,
+              gap: 10,
+            }}
+          >
             <SpringPressable
               onPress={() => router.back()}
-              style={{ justifyContent: 'center' }}
+              hitSlop={10}
+              accessibilityLabel="Back"
+              style={{ justifyContent: 'center', padding: 4 }}
             >
               <ChevronLeft size={22} color={theme.textOnHero} />
             </SpringPressable>
@@ -455,6 +466,7 @@ export default function MoneyboxDetailScreen() {
               <SpringPressable
                 onPress={openEdit}
                 disabled={editAdLoading}
+                accessibilityLabel="Edit moneybox"
                 style={{
                   width: 32,
                   height: 32,
@@ -753,8 +765,11 @@ export default function MoneyboxDetailScreen() {
                     <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 15, color: '#EF4444' }}>
                       Abandon this moneybox
                     </Text>
+                    {/* Specific, like the confirm dialog — not "all progress
+                     *  will be lost", which is vague and not quite true
+                     *  (the box stays viewable, read-only). */}
                     <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 12, color: theme.textMuted, marginTop: 2 }}>
-                      All progress will be lost
+                      Ends this goal for good
                     </Text>
                   </View>
                   <ChevronRight size={16} color="rgba(239,68,68,0.4)" />

@@ -267,13 +267,13 @@ export default function ExpensesScreen() {
             </SpringPressable>
 
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <HeroIconButton onPress={() => router.push('/expenses/categories')}>
+              <HeroIconButton label="Manage categories" onPress={() => router.push('/expenses/categories')}>
                 <FolderTree size={18} color="#FFFFFF" />
               </HeroIconButton>
-              <HeroIconButton onPress={() => router.push('/expenses/budgets')}>
+              <HeroIconButton label="Budgets" onPress={() => router.push('/expenses/budgets')}>
                 <Target size={18} color="#FFFFFF" />
               </HeroIconButton>
-              <HeroIconButton onPress={onExport}>
+              <HeroIconButton label="Export CSV" onPress={onExport}>
                 <Download size={18} color="#FFFFFF" />
               </HeroIconButton>
             </View>
@@ -838,14 +838,17 @@ export default function ExpensesScreen() {
 function HeroIconButton({
   children,
   onPress,
+  label,
 }: {
   children: React.ReactNode;
   onPress: () => void;
+  label?: string;
 }) {
   return (
     <SpringPressable
       onPress={onPress}
       haptic
+      accessibilityLabel={label}
       style={{
         width: 38,
         height: 38,

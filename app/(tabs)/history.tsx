@@ -1,10 +1,11 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ChevronRight, Trophy } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, Trophy } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AD_UNIT_IDS } from '@/lib/ads';
 import { BannerAd, BannerAdSize } from '@/lib/ads-placeholder';
@@ -21,6 +22,7 @@ import { useAppTheme } from '@/lib/stores/theme';
 export default function HistoryScreen() {
   const C = useAppTheme();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { userId } = useSessionStore();
   const { moneyboxes, streaks, loadAll } = useMoneyboxesStore();
   const { profile } = useProfileStore();
@@ -70,8 +72,26 @@ export default function HistoryScreen() {
         >
           <Animated.View
             entering={FadeInDown.duration(400)}
-            style={{ paddingHorizontal: 20, paddingTop: 56 }}
+            style={{ paddingHorizontal: 20, paddingTop: insets.top + 12 }}
           >
+            {/* Back — this screen is pushed from the Stash hero; without an
+             *  explicit affordance the only way out was a gesture. */}
+            <SpringPressable
+              onPress={() => router.back()}
+              hitSlop={10}
+              accessibilityLabel="Back"
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'rgba(255,255,255,0.08)',
+                marginBottom: 12,
+              }}
+            >
+              <ChevronLeft size={20} color="#FFFFFF" />
+            </SpringPressable>
             <Text
               style={{
                 fontFamily: 'DMSans_400Regular',
@@ -222,7 +242,7 @@ export default function HistoryScreen() {
                   width: 56,
                   height: 56,
                   borderRadius: 28,
-                  backgroundColor: '#E6F4EA',
+                  backgroundColor: C.accentLight,
                   alignItems: 'center',
                   justifyContent: 'center',
                   marginBottom: 14,
@@ -347,7 +367,7 @@ export default function HistoryScreen() {
                           width: 40,
                           height: 40,
                           borderRadius: 20,
-                          backgroundColor: '#E6F4EA',
+                          backgroundColor: C.accentLight,
                           alignItems: 'center',
                           justifyContent: 'center',
                         }}
@@ -494,7 +514,7 @@ export default function HistoryScreen() {
                     lineHeight: 18,
                   }}
                 >
-                  Nice — you’ve stuck with every vault you started.
+                  Nice. You’ve stuck with every vault you started.
                 </Text>
               </View>
             )}
