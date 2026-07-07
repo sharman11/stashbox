@@ -12,6 +12,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { GradientButton } from '@/components/GradientButton';
 import { GameLayout } from '@/components/games/GameLayout';
 
 import { CURRENCIES, getNotes } from '@/lib/currency';
@@ -563,20 +564,7 @@ export default function CoinMergeScreen() {
               Score {score} · Top tile {symbol}
               {top}
             </Text>
-            <Pressable
-              onPress={restart}
-              style={{
-                marginTop: 18,
-                backgroundColor: C.buttonPrimaryBg,
-                borderRadius: 14,
-                paddingVertical: 14,
-                paddingHorizontal: 36,
-              }}
-            >
-              <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: C.buttonPrimaryText }}>
-                Play again
-              </Text>
-            </Pressable>
+            <GradientButton label="Play again" onPress={restart} size="md" style={{ marginTop: 18 }} />
           </Animated.View>
         )}
       </View>

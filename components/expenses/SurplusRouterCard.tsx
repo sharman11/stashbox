@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { PiggyBank, TrendingUp } from 'lucide-react-native';
 import { Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
+import { LinearGradient } from 'expo-linear-gradient';
 import { SpringPressable } from '@/components/SpringPressable';
 import { formatAmount } from '@/lib/currency';
 import type { CurrencyCode } from '@/lib/currency';
@@ -77,26 +78,29 @@ export function SurplusRouterCard({ surplusCents, currency, style }: SurplusRout
         </View>
       </View>
 
-      <SpringPressable
-        haptic
-        onPress={fundGoal}
-        style={{
-          backgroundColor: C.buttonPrimaryBg,
-          borderRadius: 12,
-          paddingVertical: 12,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 6,
-        }}
-      >
-        <PiggyBank size={15} color={C.buttonPrimaryText} />
-        <Text
-          style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 13, color: C.buttonPrimaryText }}
-          numberOfLines={1}
+      <SpringPressable haptic onPress={fundGoal} style={{ borderRadius: 12 }}>
+        <LinearGradient
+          colors={[C.heroTop, C.heroMid, C.heroBot]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={{
+            borderRadius: 12,
+            overflow: 'hidden',
+            paddingVertical: 12,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+          }}
         >
-          Save toward a goal
-        </Text>
+          <PiggyBank size={15} color="#FFFFFF" />
+          <Text
+            style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 13, color: '#FFFFFF' }}
+            numberOfLines={1}
+          >
+            Save toward a goal
+          </Text>
+        </LinearGradient>
       </SpringPressable>
     </View>
   );

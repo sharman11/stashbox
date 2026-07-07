@@ -12,6 +12,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import ConfettiCannon from 'react-native-confetti-cannon';
 
+import { GradientButton } from '@/components/GradientButton';
 import { GameLayout } from '@/components/games/GameLayout';
 
 import { useBadgesStore } from '@/lib/badges/store';
@@ -309,20 +310,7 @@ export default function MemoryMatchScreen() {
               >
                 {moves} moves · {fmtTime(elapsed)}
               </Text>
-              <Pressable
-                onPress={restart}
-                style={{
-                  marginTop: 18,
-                  backgroundColor: C.buttonPrimaryBg,
-                  borderRadius: 14,
-                  paddingVertical: 14,
-                  paddingHorizontal: 36,
-                }}
-              >
-                <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 15, color: C.buttonPrimaryText }}>
-                  Play again
-                </Text>
-              </Pressable>
+              <GradientButton label="Play again" onPress={restart} size="md" style={{ marginTop: 18 }} />
             </Animated.View>
           </>
         )}

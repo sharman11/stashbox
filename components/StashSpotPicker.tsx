@@ -2,6 +2,7 @@ import { Check } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { Keyboard, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 
+import { GradientButton } from './GradientButton';
 import { useAppTheme } from '@/lib/stores/theme';
 import { STASH_SPOTS, getStashSpot } from '@/lib/stash-spots';
 
@@ -156,32 +157,14 @@ export function StashSpotPicker({ visible, current, onSelect, onCancel }: StashS
           </ScrollView>
 
           <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
-            <Pressable
+            <GradientButton
+              label={pending ? `Use ${pendingSpot?.label}` : 'Pick a spot'}
               onPress={() => {
                 if (pending) onSelect(pending);
               }}
+              enabled={!!pending}
               disabled={!pending}
-              style={{
-                backgroundColor: pending ? C.buttonPrimaryBg : C.borderLight,
-                borderRadius: 14,
-                paddingVertical: 16,
-                alignItems: 'center',
-                flexDirection: 'row',
-                justifyContent: 'center',
-                gap: 6,
-              }}
-            >
-              <Check size={16} color={pending ? C.buttonPrimaryText : C.textMuted} />
-              <Text
-                style={{
-                  fontFamily: 'DMSans_600SemiBold',
-                  fontSize: 15,
-                  color: pending ? C.buttonPrimaryText : C.textMuted,
-                }}
-              >
-                {pending ? `Use ${pendingSpot?.label}` : 'Pick a spot'}
-              </Text>
-            </Pressable>
+            />
           </View>
         </Pressable>
       </Pressable>

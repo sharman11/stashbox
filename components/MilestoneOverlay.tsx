@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 import ConfettiCannon from 'react-native-confetti-cannon';
 
+import { GradientButton } from './GradientButton';
 import { useAppTheme } from '@/lib/stores/theme';
 
 /** Identifier for which celebration to show. 100 = goal completion (legacy);
@@ -139,25 +140,11 @@ export function MilestoneOverlay({ milestone, onDismiss, onCreateNewVault, onSho
           </Text>
           {onCreateNewVault ? (
             <>
-              <Pressable
+              <GradientButton
+                label="Create new vault"
                 onPress={handleCreate}
-                style={{
-                  backgroundColor: C.buttonPrimaryBg,
-                  borderRadius: 14,
-                  paddingVertical: 14,
-                  marginTop: 24,
-                  width: '100%',
-                  alignItems: 'center',
-                }}
-              >
-                <Text
-                  allowFontScaling={false}
-                  numberOfLines={1}
-                  style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 16, color: C.buttonPrimaryText }}
-                >
-                  Create new vault
-                </Text>
-              </Pressable>
+                style={{ marginTop: 24, width: '100%' }}
+              />
               <Pressable onPress={handleDismiss} style={{ marginTop: 12, paddingVertical: 8 }}>
                 <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 14, color: C.textSecondary }}>
                   Maybe later
@@ -165,21 +152,11 @@ export function MilestoneOverlay({ milestone, onDismiss, onCreateNewVault, onSho
               </Pressable>
             </>
           ) : (
-            <Pressable
+            <GradientButton
+              label="Done"
               onPress={handleDismiss}
-              style={{
-                backgroundColor: C.buttonPrimaryBg,
-                borderRadius: 14,
-                paddingVertical: 14,
-                marginTop: 24,
-                width: '100%',
-                alignItems: 'center',
-              }}
-            >
-              <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 16, color: C.buttonPrimaryText }}>
-                Done
-              </Text>
-            </Pressable>
+              style={{ marginTop: 24, width: '100%' }}
+            />
           )}
         </View>
         <ConfettiCannon

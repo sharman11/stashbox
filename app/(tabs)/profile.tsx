@@ -48,6 +48,7 @@ import { useAdsStore } from '@/lib/stores/ads';
 import { useAvatarStore } from '@/lib/stores/avatar';
 import { useMoneyboxesStore } from '@/lib/stores/moneyboxes';
 import { useProfileStore } from '@/lib/stores/profile';
+import { GradientButton } from '@/components/GradientButton';
 import { resetUserScopedStores, useSessionStore } from '@/lib/stores/session';
 import { useAppTheme } from '@/lib/stores/theme';
 import { useAlert } from '@/lib/use-alert';
@@ -495,19 +496,7 @@ export default function ProfileScreen() {
                       returnKeyType="done"
                       onSubmitEditing={saveName}
                     />
-                    <Pressable
-                      onPress={saveName}
-                      style={{
-                        backgroundColor: C.buttonPrimaryBg,
-                        borderRadius: 10,
-                        paddingHorizontal: 16,
-                        paddingVertical: 8,
-                      }}
-                    >
-                      <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 13, color: C.buttonPrimaryText }}>
-                        Save
-                      </Text>
-                    </Pressable>
+                    <GradientButton label="Save" onPress={saveName} size="md" radius={10} />
                   </View>
                 </View>
               ) : (

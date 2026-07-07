@@ -1256,7 +1256,9 @@ export default function CreateScreen() {
         {/* Fixed bottom button */}
         <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 36, backgroundColor: C.pageBg }}>
           {step === 0 && (
-            <Pressable
+            <StepFooterButton
+              label="Next"
+              enabled={canNext0}
               onPress={async () => {
                 if (!canNext0) {
                   showAlert('Name required', 'Give your stashbox a name before continuing.', undefined, '✏️');
@@ -1265,35 +1267,13 @@ export default function CreateScreen() {
                 const unlocked = await ensureCurrencyUnlocked();
                 if (unlocked) setStep(1);
               }}
-              style={{
-                backgroundColor: canNext0 ? C.buttonPrimaryBg : C.borderLight,
-                borderRadius: 14,
-                paddingVertical: 16,
-                alignItems: 'center',
-              }}
-            >
-              <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 16, color: canNext0 ? C.buttonPrimaryText : C.textFaint }}>
-                Next
-              </Text>
-            </Pressable>
+            />
           )}
-          {step === 1 && (
-            <Pressable
-              onPress={() => setStep(2)}
-              style={{
-                backgroundColor: C.buttonPrimaryBg,
-                borderRadius: 14,
-                paddingVertical: 16,
-                alignItems: 'center',
-              }}
-            >
-              <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 16, color: C.buttonPrimaryText }}>
-                Next
-              </Text>
-            </Pressable>
-          )}
+          {step === 1 && <StepFooterButton label="Next" onPress={() => setStep(2)} />}
           {step === 2 && (
-            <Pressable
+            <StepFooterButton
+              label="Next"
+              enabled={canNext1}
               onPress={() => {
                 if (goal <= 0) {
                   showAlert('Goal required', 'Enter how much you want to save.', undefined, '💰');
@@ -1328,67 +1308,33 @@ export default function CreateScreen() {
                 }
                 setStep(3);
               }}
-              style={{
-                backgroundColor: canNext1 ? C.buttonPrimaryBg : C.borderLight,
-                borderRadius: 14,
-                paddingVertical: 16,
-                alignItems: 'center',
-              }}
-            >
-              <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 16, color: canNext1 ? C.buttonPrimaryText : C.textFaint }}>
-                Next
-              </Text>
-            </Pressable>
+            />
           )}
           {step === 3 && (
-            <Pressable
+            <StepFooterButton
+              label="Next"
+              enabled={canNext2}
               onPress={() => {
                 if (!days) { showAlert('Days required', 'Enter how many days you want to save for.', undefined, '📅'); return; }
                 if (!validation?.valid) { showAlert('Not possible', validation?.message ?? 'Check your inputs.', undefined, '⚠️'); return; }
                 setStep(4);
               }}
-              style={{
-                backgroundColor: canNext2 ? C.buttonPrimaryBg : C.borderLight,
-                borderRadius: 14,
-                paddingVertical: 16,
-                alignItems: 'center',
-              }}
-            >
-              <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 16, color: canNext2 ? C.buttonPrimaryText : C.textFaint }}>
-                Next
-              </Text>
-            </Pressable>
+            />
           )}
           {step === 4 && (
             <>
-              <Pressable
-                onPress={onCreate}
-                disabled={saving || !currencyAllowed}
-                style={{
-                  backgroundColor: currencyAllowed ? C.buttonPrimaryBg : C.borderLight,
-                  borderRadius: 14,
-                  paddingVertical: 16,
-                  alignItems: 'center',
-                }}
-              >
-                <Text
-                  allowFontScaling={false}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.75}
-                  style={{
-                    fontFamily: 'DMSans_600SemiBold',
-                    fontSize: 16,
-                    color: currencyAllowed ? C.buttonPrimaryText : C.textFaint,
-                  }}
-                >
-                  {saving
+              <StepFooterButton
+                label={
+                  saving
                     ? 'Creating...'
                     : currencyAllowed
                       ? 'Create stashbox'
-                      : 'Limit reached for this currency'}
-                </Text>
-              </Pressable>
+                      : 'Limit reached for this currency'
+                }
+                enabled={currencyAllowed}
+                disabled={saving || !currencyAllowed}
+                onPress={onCreate}
+              />
               {!currencyAllowed && (
                 <Text
                   style={{
@@ -1438,6 +1384,56 @@ export default function CreateScreen() {
         onCancel={() => setCurrencyPickerOpen(false)}
       />
     </View>
+  );
+}
+
+/** Full-width footer CTA in the brand gradient. `enabled` is visual only —
+ *  a dim button can still be tapped so validation alerts explain what's
+ *  missing. `disabled` actually blocks the press (saving / hard limits). */
+function StepFooterButton({
+  label,
+  onPress,
+  enabled = true,
+  disabled = false,
+}: {
+  label: string;
+  onPress: () => void;
+  enabled?: boolean;
+  disabled?: boolean;
+}) {
+  const C = useAppTheme();
+  return (
+    <SpringPressable onPress={onPress} disabled={disabled} haptic style={{ borderRadius: 14 }}>
+      <LinearGradient
+        colors={
+          enabled
+            ? [C.heroTop, C.heroMid, C.heroBot]
+            : [C.borderLight, C.borderLight, C.borderLight]
+        }
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={{
+          borderRadius: 14,
+          overflow: 'hidden',
+          paddingVertical: 16,
+          alignItems: 'center',
+        }}
+      >
+        <Text
+          allowFontScaling={false}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.75}
+          style={{
+            fontFamily: 'DMSans_600SemiBold',
+            fontSize: 16,
+            color: enabled ? '#FFFFFF' : C.textFaint,
+          }}
+        >
+          {label}
+        </Text>
+      </LinearGradient>
+    </SpringPressable>
   );
 }
 

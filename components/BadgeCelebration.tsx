@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 import ConfettiCannon from 'react-native-confetti-cannon';
 
+import { GradientButton } from '@/components/GradientButton';
 import { getBadge } from '@/lib/badges/catalog';
 import { useBadgesStore } from '@/lib/badges/store';
 import { useAppReadyStore } from '@/lib/stores/app-ready';
@@ -120,24 +121,7 @@ export function BadgeCelebration() {
           {badge.description}
         </Text>
 
-        <Pressable
-          onPress={acknowledge}
-          style={{
-            marginTop: 36,
-            backgroundColor: C.accent,
-            borderRadius: 14,
-            paddingVertical: 14,
-            paddingHorizontal: 48,
-          }}
-        >
-          <Text
-            allowFontScaling={false}
-            numberOfLines={1}
-            style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 16, color: '#FFFFFF' }}
-          >
-            Continue
-          </Text>
-        </Pressable>
+        <GradientButton label="Continue" onPress={acknowledge} style={{ marginTop: 36 }} />
       </View>
     </Modal>
   );

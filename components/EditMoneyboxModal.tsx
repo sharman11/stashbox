@@ -15,6 +15,7 @@ import { IconPicker } from '@/components/IconPicker';
 import { StashSpotPicker } from '@/components/StashSpotPicker';
 import { getStashSpot } from '@/lib/stash-spots';
 import { useMoneyboxesStore } from '@/lib/stores/moneyboxes';
+import { GradientButton } from './GradientButton';
 import { useAppTheme } from '@/lib/stores/theme';
 import { THEMES } from '@/lib/theme';
 import { getThemeLockState } from '@/lib/theme-unlocks';
@@ -382,26 +383,12 @@ export function EditMoneyboxModal({ visible, moneybox, onCancel, onSave }: EditM
           </ScrollView>
 
           <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
-            <Pressable
+            <GradientButton
+              label={saving ? 'Saving…' : 'Save changes'}
               onPress={handleSave}
+              enabled={canSave}
               disabled={!canSave}
-              style={{
-                backgroundColor: canSave ? C.buttonPrimaryBg : C.borderLight,
-                borderRadius: 14,
-                paddingVertical: 16,
-                alignItems: 'center',
-              }}
-            >
-              <Text
-                style={{
-                  fontFamily: 'DMSans_600SemiBold',
-                  fontSize: 16,
-                  color: canSave ? C.buttonPrimaryText : C.textFaint,
-                }}
-              >
-                {saving ? 'Saving…' : 'Save changes'}
-              </Text>
-            </Pressable>
+            />
           </View>
         </View>
       </KeyboardAvoidingView>
