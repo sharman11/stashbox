@@ -106,9 +106,23 @@ export default function ExpensesScreen() {
     return breakdown.filter((b) => b.amountCents > 0);
   }, [transactions, periodAnchor, homeCurrency, rates]);
 
+  // Months that existed for this account: from the signup month to now,
+  // capped at 6. A month before the account existed is dead weight — no
+  // bar, no tap target, no month-pill navigation.
+  const accountStartAnchor = useMemo(
+    () => (profile?.createdAt ? monthAnchorFor(profile.createdAt.slice(0, 10)) : null),
+    [profile?.createdAt],
+  );
+  const monthsAvailable = useMemo(() => {
+    if (!accountStartAnchor) return 6;
+    const [sy, sm] = accountStartAnchor.split('-').map(Number);
+    const [cy, cm] = currentMonthAnchor().split('-').map(Number);
+    return Math.min(6, Math.max(1, (cy - sy) * 12 + (cm - sm) + 1));
+  }, [accountStartAnchor]);
+
   const trend = useMemo(
-    () => monthlyTrend(transactions, homeCurrency, rates, 6),
-    [transactions, homeCurrency, rates],
+    () => monthlyTrend(transactions, homeCurrency, rates, 6).slice(-monthsAvailable),
+    [transactions, homeCurrency, rates, monthsAvailable],
   );
 
   // One-sentence conclusion for the trend chart: how the viewed month sits
@@ -121,16 +135,17 @@ export default function ExpensesScreen() {
     const diff = (cur.expenseCents - avg) / avg;
     const pct = Math.round(Math.abs(diff) * 100);
     const month = monthNameOf(periodAnchor);
+    const span = `${monthsAvailable}-month`;
     if (pct < 3) {
-      return { prefix: `${month} is `, highlight: 'right on', suffix: ' your 6-month average', tone: 'neutral' as const };
+      return { prefix: `${month} is `, highlight: 'right on', suffix: ` your ${span} average`, tone: 'neutral' as const };
     }
     return {
       prefix: `${month} is `,
       highlight: `${pct}% ${diff > 0 ? 'above' : 'below'}`,
-      suffix: ' your 6-month average',
+      suffix: ` your ${span} average`,
       tone: diff > 0 ? ('bad' as const) : ('good' as const),
     };
-  }, [trend, periodAnchor]);
+  }, [trend, periodAnchor, monthsAvailable]);
 
   const { monthTxns, monthTxnCount } = useMemo(() => {
     const prefix = periodAnchor.slice(0, 7);
@@ -169,12 +184,18 @@ export default function ExpensesScreen() {
   );
 
   // ── handlers ──
-  const goPrevMonth = () => setPeriodAnchor(shiftMonth(periodAnchor, -1));
+  const goPrevMonth = () => {
+    const prev = shiftMonth(periodAnchor, -1);
+    // Months before the account existed hold nothing — don't navigate there.
+    if (accountStartAnchor && prev < accountStartAnchor) return;
+    setPeriodAnchor(prev);
+  };
   const goNextMonth = () => {
     const next = shiftMonth(periodAnchor, +1);
     if (next > currentMonthAnchor()) return; // don't allow future months
     setPeriodAnchor(next);
   };
+  const atFirstMonth = accountStartAnchor !== null && periodAnchor <= accountStartAnchor;
   const onAdd = () => router.push('/expenses/edit');
   const onEdit = (id: string) => router.push({ pathname: '/expenses/edit', params: { id } });
   const onExport = async () => {
@@ -270,7 +291,9 @@ export default function ExpensesScreen() {
                 textAlign: 'center',
               }}
             >
-              {monthTotals.balanceCents >= 0 ? 'SAVED' : 'OVERSPENT'}
+              {/* "LEFT", not "SAVED" — "saved" is the stash concept (cash in
+               *  boxes); this is simply income minus spending. */}
+              {monthTotals.balanceCents >= 0 ? 'LEFT' : 'OVERSPENT'}
             </Text>
             <AnimatedNumber
               value={Math.abs(monthTotals.balanceCents) / 100}
@@ -336,8 +359,9 @@ export default function ExpensesScreen() {
               >
                 <SpringPressable
                   onPress={goPrevMonth}
+                  disabled={atFirstMonth}
                   haptic
-                  style={{ paddingVertical: 7, paddingHorizontal: 9 }}
+                  style={{ opacity: atFirstMonth ? 0.3 : 1, paddingVertical: 7, paddingHorizontal: 9 }}
                 >
                   <ChevronLeft size={16} color="#06291F" />
                 </SpringPressable>
@@ -586,8 +610,15 @@ export default function ExpensesScreen() {
           />
         )}
 
-        {/* ── Last 6 months (trend) ── */}
-        <SectionHeader title="Last 6 months" meta="Tap a month to view it" />
+        {/* ── Monthly trend — only months the account has actually lived
+         *  through. A brand-new user gets no row of dead pre-signup bars,
+         *  and one month is not a trend, so the section waits for month 2. */}
+        {monthsAvailable >= 2 && (
+          <>
+        <SectionHeader
+          title={monthsAvailable < 6 ? `Last ${monthsAvailable} months` : 'Last 6 months'}
+          meta="Tap a month to view it"
+        />
         <View
           style={{
             backgroundColor: C.surface,
@@ -638,6 +669,8 @@ export default function ExpensesScreen() {
             </Text>
           )}
         </View>
+          </>
+        )}
 
         {/* ── Transactions ── */}
         <SectionHeader
