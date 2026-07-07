@@ -117,22 +117,40 @@ export const useSessionStore = create<SessionState>((set) => ({
 
   signOut: async () => {
     try {
-      // Sign out first, then create fresh anonymous session.
-      // The onAuthStateChange listener updates userId, and the useEffect in
-      // useBootstrap reloads profile/moneyboxes for the new user.
-      // Do NOT reset profile store here - doing so flips `ready` to false,
-      // unmounts the router Stack, and blocks navigation.
       await authSignOut();
 
-      const { useMoneyboxesStore } = await import('./moneyboxes');
-      const { useAvatarStore } = await import('./avatar');
-      const { useLoansStore } = await import('./loans');
-      useMoneyboxesStore.getState().reset();
-      useAvatarStore.getState().reset();
-      useLoansStore.getState().reset();
+      // Clear the session state HERE, synchronously — do not rely on the
+      // onAuthStateChange listener. Its delivery can land after the caller's
+      // `transitioning` flag flips off, and in that window the welcome
+      // screen's redirect guard sees the stale userId + stale profile and
+      // bounces the user straight back to home ("empty state after logout").
+      set({ userId: null, isAnonymous: true, email: null });
+
+      await resetUserScopedStores();
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Sign out failed';
       set({ error: message });
     }
   },
 }));
+
+/**
+ * Reset every user-scoped store. Used by both log-out and delete-account so
+ * no stale data (profile.onboardingDone, TTL-cached expenses, moneyboxes)
+ * survives into the next session. Resetting profile is safe: the root Stack
+ * renders unconditionally (`ready` only gates the auth guard + splash exit).
+ */
+export async function resetUserScopedStores(): Promise<void> {
+  const { useMoneyboxesStore } = await import('./moneyboxes');
+  const { useAvatarStore } = await import('./avatar');
+  const { useProfileStore } = await import('./profile');
+  const { useExpenseTransactionsStore } = await import('./expense-transactions');
+  const { useExpenseBudgetsStore } = await import('./expense-budgets');
+  const { useExpenseCategoriesStore } = await import('./expense-categories');
+  useMoneyboxesStore.getState().reset();
+  useAvatarStore.getState().reset();
+  useProfileStore.getState().reset();
+  useExpenseTransactionsStore.getState().reset();
+  useExpenseBudgetsStore.getState().reset();
+  useExpenseCategoriesStore.getState().reset();
+}

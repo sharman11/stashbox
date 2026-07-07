@@ -1,3 +1,5 @@
+import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ArrowRight, ChevronLeft, Mail } from 'lucide-react-native';
@@ -14,6 +16,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { SpringPressable } from '@/components/SpringPressable';
 import { requestEmailOtp, verifyEmailOtp } from '@/lib/auth';
 import { useAppReadyStore } from '@/lib/stores/app-ready';
 import { useProfileStore } from '@/lib/stores/profile';
@@ -24,6 +27,24 @@ const CODE_LENGTH = 6;
 const RESEND_COOLDOWN_SECS = 60;
 
 type Stage = 'email' | 'code';
+
+/** Map raw auth-backend errors to copy that says what happened and what to
+ *  do next, instead of "Token has expired or is invalid". */
+function friendlyAuthError(e: unknown, stage: Stage): string {
+  const raw = e instanceof Error ? e.message : '';
+  const lower = raw.toLowerCase();
+  if (lower.includes('expired') || lower.includes('invalid') || lower.includes('token')) {
+    return "That code didn't match. Check for typos, or send a fresh one below.";
+  }
+  if (lower.includes('security purposes') || lower.includes('rate')) {
+    return 'Too many attempts. Give it a minute, then try again.';
+  }
+  if (lower.includes('network') || lower.includes('fetch')) {
+    return 'No connection. Check your internet and try again.';
+  }
+  if (raw) return raw;
+  return stage === 'email' ? 'Could not send the code. Try again.' : 'Could not verify the code. Try again.';
+}
 
 export default function EmailOtpScreen() {
   const C = useAppTheme();
@@ -96,7 +117,7 @@ export default function EmailOtpScreen() {
       setCode('');
       setResendIn(RESEND_COOLDOWN_SECS);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Something went wrong.');
+      setError(friendlyAuthError(e, 'email'));
     } finally {
       setLoading(false);
       useSessionStore.getState().setTransitioning(false);
@@ -111,8 +132,9 @@ export default function EmailOtpScreen() {
       await requestEmailOtp(email.trim());
       setResendIn(RESEND_COOLDOWN_SECS);
       setCode('');
+      lastSubmittedCode.current = null;
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Could not resend the code.');
+      setError(friendlyAuthError(e, 'email'));
     } finally {
       setLoading(false);
     }
@@ -120,21 +142,42 @@ export default function EmailOtpScreen() {
 
   const onVerify = async () => {
     if (!codeValid || loading) return;
+    lastSubmittedCode.current = code;
     setLoading(true);
     setError(null);
     useSessionStore.getState().setTransitioning(true);
     try {
       await verifyEmailOtp(email.trim(), code);
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
+      }
       await refresh();
       // Routing happens via the Redirect at the top of this component on the
       // next render, driven by the now-updated session + profile state.
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Could not verify the code.');
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => undefined);
+      }
+      setError(friendlyAuthError(e, 'code'));
+      // Clear the wrong code and refocus so retyping starts immediately.
+      setCode('');
+      lastSubmittedCode.current = null;
+      setTimeout(() => codeInputRef.current?.focus(), 100);
     } finally {
       setLoading(false);
       useSessionStore.getState().setTransitioning(false);
     }
   };
+
+  // Auto-submit the moment the 6th digit lands (typed, pasted, or OS
+  // autofill) — the user should never have to tap Verify after autofill.
+  const lastSubmittedCode = useRef<string | null>(null);
+  useEffect(() => {
+    if (stage !== 'code' || !codeValid || loading) return;
+    if (lastSubmittedCode.current === code) return;
+    onVerify();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code, stage, codeValid, loading]);
 
   const onEditEmail = () => {
     setStage('email');
@@ -313,65 +356,65 @@ export default function EmailOtpScreen() {
             backgroundColor: C.pageBg,
           }}
         >
-          <Pressable
-            onPress={stage === 'email' ? onSendCode : onVerify}
-            disabled={
-              loading ||
-              (stage === 'email' ? !emailValid : !codeValid)
-            }
-            style={({ pressed }) => {
-              const disabled =
-                loading || (stage === 'email' ? !emailValid : !codeValid);
-              return {
-                borderRadius: 16,
-                transform: [{ scale: pressed && !disabled ? 0.98 : 1 }],
-                shadowColor: C.buttonPrimaryBg,
-                shadowOffset: { width: 0, height: 8 },
-                shadowOpacity: disabled ? 0 : 0.25,
-                shadowRadius: 20,
-                elevation: disabled ? 0 : 6,
-              };
-            }}
-          >
-            <View
-              style={{
-                backgroundColor:
-                  loading || (stage === 'email' ? !emailValid : !codeValid)
-                    ? C.borderLight
-                    : C.buttonPrimaryBg,
-                borderRadius: 16,
-                paddingVertical: 18,
-                paddingHorizontal: 24,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 10,
-              }}
-            >
-              {loading ? (
-                <ActivityIndicator color={C.buttonPrimaryText} />
-              ) : (
-                <>
-                  <Text
-                    style={{
-                      fontFamily: 'DMSans_700Bold',
-                      fontSize: 16,
-                      color:
-                        (stage === 'email' ? emailValid : codeValid)
-                          ? C.buttonPrimaryText
-                          : C.textMuted,
-                      letterSpacing: 0.2,
-                    }}
-                  >
-                    {stage === 'email' ? 'Send code' : 'Verify'}
-                  </Text>
-                  {(stage === 'email' ? emailValid : codeValid) && (
-                    <ArrowRight size={18} color={C.buttonPrimaryText} strokeWidth={2.5} />
+          {(() => {
+            const valid = stage === 'email' ? emailValid : codeValid;
+            const disabled = loading || !valid;
+            return (
+              <SpringPressable
+                onPress={stage === 'email' ? onSendCode : onVerify}
+                disabled={disabled}
+                haptic
+                style={{
+                  borderRadius: 16,
+                  shadowColor: disabled ? 'transparent' : C.heroTop,
+                  shadowOffset: { width: 0, height: 8 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 20,
+                  elevation: disabled ? 0 : 6,
+                }}
+              >
+                {/* Brand gradient when actionable — same treatment as the
+                 *  welcome CTA the user just came from. */}
+                <LinearGradient
+                  colors={
+                    disabled
+                      ? [C.borderLight, C.borderLight, C.borderLight]
+                      : [C.heroTop, C.heroMid, C.heroBot]
+                  }
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0.5, y: 1 }}
+                  style={{
+                    borderRadius: 16,
+                    overflow: 'hidden',
+                    paddingVertical: 18,
+                    paddingHorizontal: 24,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 10,
+                  }}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <Text
+                        style={{
+                          fontFamily: 'DMSans_700Bold',
+                          fontSize: 16,
+                          color: valid ? '#FFFFFF' : C.textMuted,
+                          letterSpacing: 0.2,
+                        }}
+                      >
+                        {stage === 'email' ? 'Send code' : 'Verify'}
+                      </Text>
+                      {valid && <ArrowRight size={18} color="#FFFFFF" strokeWidth={2.5} />}
+                    </>
                   )}
-                </>
-              )}
-            </View>
-          </Pressable>
+                </LinearGradient>
+              </SpringPressable>
+            );
+          })()}
         </View>
       </KeyboardAvoidingView>
     </View>
@@ -412,9 +455,12 @@ const CodeInput = ((props: CodeInputProps & { ref?: React.Ref<TextInput> }) => {
                 flex: 1,
                 aspectRatio: 0.82,
                 borderRadius: 12,
-                borderWidth: 1.5,
-                borderColor: isCursor ? C.accent : filled ? C.accent : C.border,
-                backgroundColor: C.surface,
+                // Only the active slot pops — filled boxes already show
+                // their digit, so accent-bordering them too made the cursor
+                // position unreadable.
+                borderWidth: isCursor ? 2 : 1.5,
+                borderColor: isCursor ? C.accent : C.border,
+                backgroundColor: isCursor ? `${C.accent}0D` : C.surface,
                 alignItems: 'center',
                 justifyContent: 'center',
               }}

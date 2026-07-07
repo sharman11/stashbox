@@ -441,17 +441,20 @@ const ROBOTS: AvatarConfig[] = Array.from({ length: 20 }, (_, i) => ({
   requirement: ROBOT_REQS[i],
 }));
 
-/** OG = the original emoji avatars, free for everyone. */
+/** OG = the original emoji avatars, free for everyone.
+ *  Order matters: this is the signup grid. The fox leads (friendly,
+ *  mascot-adjacent) — deliberately NOT the pig, which several of our
+ *  markets would read poorly as a default identity. */
 const OG: AvatarConfig[] = [
-  { id: '🐷', kind: 'emoji', emoji: '🐷', bg: '#FECDD3', category: 'og' },
   { id: '🦊', kind: 'emoji', emoji: '🦊', bg: '#FED7AA', category: 'og' },
-  { id: '🐸', kind: 'emoji', emoji: '🐸', bg: '#BBF7D0', category: 'og' },
   { id: '🐱', kind: 'emoji', emoji: '🐱', bg: '#E9D5FF', category: 'og' },
   { id: '🐶', kind: 'emoji', emoji: '🐶', bg: '#FDE68A', category: 'og' },
+  { id: '🐸', kind: 'emoji', emoji: '🐸', bg: '#BBF7D0', category: 'og' },
   { id: '🦁', kind: 'emoji', emoji: '🦁', bg: '#FDBA74', category: 'og' },
   { id: '🐼', kind: 'emoji', emoji: '🐼', bg: '#E5E7EB', category: 'og' },
   { id: '🦄', kind: 'emoji', emoji: '🦄', bg: '#FBCFE8', category: 'og' },
   { id: '🐲', kind: 'emoji', emoji: '🐲', bg: '#A5F3FC', category: 'og' },
+  { id: '🐷', kind: 'emoji', emoji: '🐷', bg: '#FECDD3', category: 'og' },
   { id: '🤖', kind: 'emoji', emoji: '🤖', bg: '#BBF7D0', category: 'og' },
 ];
 
@@ -548,4 +551,4 @@ export function groupAvatarsByCategory(): { category: AvatarCategory; items: Ava
     .map((category) => ({ category, items: groups.get(category)! }));
 }
 
-export const DEFAULT_AVATAR: AvatarConfig = AVATARS.find((a) => a.id === '🐷') ?? AVATARS[0];
+export const DEFAULT_AVATAR: AvatarConfig = AVATARS.find((a) => a.id === '🦊') ?? AVATARS[0];

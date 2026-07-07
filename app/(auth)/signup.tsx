@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
@@ -6,12 +7,11 @@ import {
   Check,
   ChevronLeft,
   Coins,
-  GraduationCap,
   Heart,
   Smile,
   Sparkles,
-  Target,
   User as UserIcon,
+  Wallet,
   X,
 } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -31,13 +31,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AvatarVisual } from '@/components/AvatarVisual';
 import { MultiCurrencyPicker } from '@/components/MultiCurrencyPicker';
 import { AVATARS, DEFAULT_AVATAR } from '@/lib/avatars';
-import { CURRENCIES, type CurrencyCode, getPracticalNotes } from '@/lib/currency';
-import { suggestCols } from '@/lib/grid';
+import { CURRENCIES, formatAmount, type CurrencyCode } from '@/lib/currency';
 import { detectLocaleCurrency } from '@/lib/locale-currency';
 import { useAppReadyStore } from '@/lib/stores/app-ready';
 import { useAvatarStore } from '@/lib/stores/avatar';
-import { useLoansStore } from '@/lib/stores/loans';
-import { useMoneyboxesStore } from '@/lib/stores/moneyboxes';
+import { useExpenseBudgetsStore } from '@/lib/stores/expense-budgets';
+import { useExpenseCategoriesStore } from '@/lib/stores/expense-categories';
+import { currentMonthAnchor, todayDate, useExpenseTransactionsStore } from '@/lib/stores/expense-transactions';
 import { useProfileStore } from '@/lib/stores/profile';
 import { useSessionStore } from '@/lib/stores/session';
 import { useAppTheme } from '@/lib/stores/theme';
@@ -48,11 +48,9 @@ import { useAppTheme } from '@/lib/stores/theme';
 
 const FREE_AVATARS = AVATARS.filter((a) => a.category === 'og');
 const NAME_MAX = 48;
-const GOAL_NAME_MAX = 32;
-const LOAN_NAME_MAX = 24;
 
-type StepId = 1 | 2 | 3 | 4 | 5 | 6;
-const TOTAL_STEPS = 6;
+type StepId = 1 | 2 | 3 | 4 | 5;
+const TOTAL_STEPS = 5;
 
 interface StepMeta {
   id: StepId;
@@ -60,46 +58,27 @@ interface StepMeta {
   Icon: typeof UserIcon;
 }
 
+// No goal step here on purpose: goal creation lives in the full /create flow
+// (stash spot, timeline, theme, validation) which the home empty state leads
+// new users into. A stripped-down duplicate in the stepper just diverges.
 const STEPS: readonly StepMeta[] = [
   { id: 1, label: 'Your name', Icon: UserIcon },
   { id: 2, label: 'Pick avatar', Icon: Smile },
   { id: 3, label: 'Currency', Icon: Coins },
-  { id: 4, label: 'First goal', Icon: Target },
-  { id: 5, label: 'Loans', Icon: GraduationCap },
-  { id: 6, label: "You're in!", Icon: Heart },
+  { id: 4, label: 'Money picture', Icon: Wallet },
+  { id: 5, label: "You're in!", Icon: Heart },
 ];
 
-interface QuizOption {
-  emoji: string;
-  label: string;
-  value: string;
-}
-
-const QUIZ_Q1: QuizOption[] = [
-  { emoji: '🐇', label: 'Sprint saver', value: 'sprint' },
-  { emoji: '🐢', label: 'Steady & slow', value: 'steady' },
-  { emoji: '🎲', label: 'Whenever I feel like it', value: 'random' },
-];
-
-const QUIZ_Q2: QuizOption[] = [
-  { emoji: '🎯', label: 'One big goal', value: 'focused' },
-  { emoji: '🧺', label: 'Multiple small goals', value: 'multi' },
-  { emoji: '🤷', label: 'Not sure yet', value: 'unsure' },
-];
-
-const PERSONALITY_MAP: Record<string, { type: string; emoji: string; desc: string }> = {
-  'sprint-focused': { type: 'The Laser', emoji: '🎯', desc: 'You lock in hard and get it done fast.' },
-  'sprint-multi': { type: 'The Juggler', emoji: '🤹', desc: 'Fast pace, many plates spinning. Impressive!' },
-  'sprint-unsure': { type: 'The Sprinter', emoji: '🏃', desc: 'Quick bursts of saving energy. Channel it!' },
-  'steady-focused': { type: 'The Builder', emoji: '🧱', desc: 'Brick by brick, you never miss a day.' },
-  'steady-multi': { type: 'The Gardener', emoji: '🌱', desc: 'Patiently growing multiple savings at once.' },
-  'steady-unsure': { type: 'The Turtle', emoji: '🐢', desc: 'Slow and steady wins the race.' },
-  'random-focused': { type: 'The Wildcard', emoji: '🃏', desc: 'Unpredictable, but when you save, you save big.' },
-  'random-multi': { type: 'The Explorer', emoji: '🧭', desc: 'Trying everything, saving everywhere.' },
-  'random-unsure': { type: 'The Free Spirit', emoji: '🦋', desc: 'No plan needed. You save when it feels right.' },
-};
-
-type Step6Sub = 'quiz' | 'reveal';
+/** Income-source options for the Money picture step. `category` is the
+ *  income category the seeded transaction is filed under (created if the
+ *  user's list doesn't have it — only "Salary" ships as a default). */
+const INCOME_SOURCES = [
+  { emoji: '💼', label: 'Salary', value: 'salary', category: { name: 'Salary', emoji: '💼', color: '#10B981' } },
+  { emoji: '🏪', label: 'Business', value: 'business', category: { name: 'Business', emoji: '🏪', color: '#3B82F6' } },
+  { emoji: '💻', label: 'Freelance', value: 'freelance', category: { name: 'Freelance', emoji: '💻', color: '#8B5CF6' } },
+  { emoji: '🎁', label: 'Family', value: 'family', category: { name: 'Family', emoji: '🎁', color: '#EC4899' } },
+  { emoji: '💸', label: 'Other', value: 'other', category: { name: 'Other income', emoji: '💸', color: '#F59E0B' } },
+] as const;
 
 /* ──────────────────────────────────────────────────────────────────────
  * Screen
@@ -116,13 +95,11 @@ export default function SignupScreen() {
   const transitioning = useSessionStore((s) => s.transitioning);
   const { completeOnboarding, update } = useProfileStore();
   const setAvatar = useAvatarStore((s) => s.setAvatar);
-  const createMoneybox = useMoneyboxesStore((s) => s.create);
-  const createLoan = useLoansStore((s) => s.create);
   const profile = useProfileStore((s) => s.profile);
 
   // Account creation now happens in /(auth)/email-otp before the user
   // reaches this screen. The signup stepper is purely the post-auth
-  // onboarding (name, avatar, currency, goal, loans, you're in).
+  // onboarding (name, avatar, currency, money picture, you're in).
   //
   // Pre-seed the name field if the user is resuming a previously-saved
   // partial profile.
@@ -130,7 +107,6 @@ export default function SignupScreen() {
 
   // ── stepper state ──
   const [step, setStep] = useState<StepId>(1);
-  const [step6Sub, setStep6Sub] = useState<Step6Sub>('quiz');
 
   // ── Step 1: Name ──
   const [name, setName] = useState(seededName);
@@ -143,18 +119,10 @@ export default function SignupScreen() {
   const [currencies, setCurrencies] = useState<CurrencyCode[]>([localeDefault]);
   const primaryCurrency = currencies[0] ?? localeDefault;
 
-  // ── Step 4: Goal ──
-  const [goalName, setGoalName] = useState('');
-  const [goalAmountText, setGoalAmountText] = useState('');
-
-  // ── Step 5: Loans ──
-  const [loanNickname, setLoanNickname] = useState('');
-  const [loanBalanceText, setLoanBalanceText] = useState('');
-  const [loanMonthlyText, setLoanMonthlyText] = useState('');
-
-  // ── Step 6: Quiz ──
-  const [q1, setQ1] = useState<string | null>(null);
-  const [q2, setQ2] = useState<string | null>(null);
+  // ── Step 4: Money picture (all optional) ──
+  const [incomeSource, setIncomeSource] = useState<string | null>(null);
+  const [incomeText, setIncomeText] = useState('');
+  const [budgetText, setBudgetText] = useState('');
 
   // ── async ──
   const [saving, setSaving] = useState(false);
@@ -166,19 +134,10 @@ export default function SignupScreen() {
   // for single-word entries and to empty for blank.
   const displayFirst = trimmedName.split(/\s+/)[0] ?? '';
   const step1Valid = trimmedName.length > 0;
-  const personality =
-    q1 && q2 ? PERSONALITY_MAP[`${q1}-${q2}`] ?? PERSONALITY_MAP['steady-unsure'] : null;
 
-  // Goal: a partial fill counts as a "skip" — only create if both name AND amount
-  // are present and valid. Either of those missing → quietly skip.
-  const goalAmount = Number(goalAmountText.replace(/[^0-9.]/g, ''));
-  const goalReady = goalName.trim().length > 0 && goalAmount > 0;
-
-  // Loan: same rule — must have nickname + balance + monthly.
-  const loanBalance = Number(loanBalanceText.replace(/[^0-9.]/g, ''));
-  const loanMonthly = Number(loanMonthlyText.replace(/[^0-9.]/g, ''));
-  const loanReady =
-    loanNickname.trim().length > 0 && loanBalance > 0 && loanMonthly > 0;
+  // Money picture: everything optional; only persist what was given.
+  const monthlyIncome = Number(incomeText.replace(/[^0-9.]/g, ''));
+  const monthlyBudget = Number(budgetText.replace(/[^0-9.]/g, ''));
 
   // ── navigation ──
   const goNext = () => {
@@ -191,14 +150,8 @@ export default function SignupScreen() {
     goNext();
   };
 
-  const onStep6QuizNext = () => {
-    if (!personality) return;
-    setStep6Sub('reveal');
-  };
-
-  // Finalize: persists name + avatar + currencies + personality, plus the
-  // optional moneybox and loan. Errors from moneybox/loan creation are
-  // surfaced but don't block onboardingDone — the user can retry from the UI.
+  // Finalize: persists name + avatar + currencies, plus the optional money
+  // picture. Seeding errors are non-fatal — the user can retry from the UI.
   const onFinishOnboarding = async () => {
     if (saving) return;
     setSaving(true);
@@ -210,54 +163,75 @@ export default function SignupScreen() {
         defaultCurrency: primaryCurrency,
         preferredCurrencies: currencies,
       });
-      if (personality) {
-        await AsyncStorage.setItem('stashbox_personality', JSON.stringify(personality));
-      }
 
-      if (goalReady && userId) {
+      // Money picture → real features. The budget seeds this month's overall
+      // cap, which lights up Safe-to-Spend on Home and the Expenses budget
+      // card from day one. Income + source are stored for insights.
+      if (monthlyBudget > 0 && userId) {
         try {
-          const targetDays = 30;
-          await createMoneybox({
+          await useExpenseBudgetsStore.getState().setBudget({
             userId,
-            name: goalName.trim(),
-            icon: '💰',
-            stashSpot: null,
-            theme: 'classic_gold',
+            categoryId: null,
+            periodMonth: currentMonthAnchor(),
+            limitCents: Math.round(monthlyBudget * 100),
             currency: primaryCurrency,
-            goalAmount,
-            targetDays,
-            gridCols: suggestCols(targetDays),
-            notes: getPracticalNotes(primaryCurrency),
           });
         } catch (e) {
-          // Non-fatal: log and continue to home.
+          // Non-fatal: the user can set it later from the Budgets screen.
           // eslint-disable-next-line no-console
-          console.warn('moneybox create failed', e);
+          console.warn('onboarding budget create failed', e);
         }
       }
-
-      if (loanReady && userId) {
+      // Income shows up as a real transaction in the Expenses tab — telling
+      // us your salary and then never seeing it anywhere is a broken promise.
+      if (monthlyIncome > 0 && userId) {
         try {
-          await createLoan({
+          const catStore = useExpenseCategoriesStore.getState();
+          await catStore.seedDefaultsIfEmpty(userId);
+          const meta = INCOME_SOURCES.find((s) => s.value === incomeSource)?.category;
+          let categoryId: string | null = null;
+          if (meta) {
+            const existing = useExpenseCategoriesStore
+              .getState()
+              .categories.find(
+                (c) => c.type === 'income' && c.name.toLowerCase() === meta.name.toLowerCase(),
+              );
+            if (existing) {
+              categoryId = existing.id;
+            } else {
+              await catStore.create({ userId, type: 'income', ...meta });
+              categoryId =
+                useExpenseCategoriesStore
+                  .getState()
+                  .categories.find(
+                    (c) => c.type === 'income' && c.name.toLowerCase() === meta.name.toLowerCase(),
+                  )?.id ?? null;
+            }
+          }
+          await useExpenseTransactionsStore.getState().create({
             userId,
-            nickname: loanNickname.trim(),
-            loanType: 'private',
-            servicer: null,
-            originalPrincipalCents: Math.round(loanBalance * 100),
-            currentBalanceCents: Math.round(loanBalance * 100),
-            aprBps: 600,
-            aprType: 'fixed',
-            termMonthsRemaining: 120,
-            monthlyPaymentCents: Math.round(loanMonthly * 100),
-            dueDayOfMonth: 1,
-            autopayOn: false,
-            repaymentPlan: 'standard',
-            reminderEnabled: false,
+            type: 'income',
+            amountCents: Math.round(monthlyIncome * 100),
+            currency: primaryCurrency,
+            categoryId,
+            occurredOn: todayDate(),
+            note: 'Monthly income',
           });
         } catch (e) {
+          // Non-fatal: the user can log it manually.
           // eslint-disable-next-line no-console
-          console.warn('loan create failed', e);
+          console.warn('onboarding income create failed', e);
         }
+      }
+      if (monthlyIncome > 0 || incomeSource) {
+        await AsyncStorage.setItem(
+          'stashbox_income_profile',
+          JSON.stringify({
+            monthlyIncomeCents: monthlyIncome > 0 ? Math.round(monthlyIncome * 100) : null,
+            source: incomeSource,
+            currency: primaryCurrency,
+          }),
+        );
       }
 
       router.replace('/');
@@ -269,10 +243,6 @@ export default function SignupScreen() {
   };
 
   const onBack = () => {
-    if (step === 6 && step6Sub === 'reveal') {
-      setStep6Sub('quiz');
-      return;
-    }
     if (step > 1) {
       setStep((step - 1) as StepId);
     }
@@ -281,7 +251,7 @@ export default function SignupScreen() {
   // The user is authenticated by the time they reach this screen, and the
   // auth guard bounces them back here until onboardingDone flips. The X is
   // hidden — only the back chevron is shown, and only between steps.
-  const showBack = step > 1 || (step === 6 && step6Sub === 'reveal');
+  const showBack = step > 1;
 
   // Anonymous user landing here directly somehow — defensive redirect to
   // the email-OTP entry. The auth guard normally prevents this, but if the
@@ -377,12 +347,14 @@ export default function SignupScreen() {
         )}
 
         {step === 4 && (
-          <GoalStep
+          <MoneyStep
             currency={primaryCurrency}
-            goalName={goalName}
-            goalAmountText={goalAmountText}
-            onGoalName={(v) => setGoalName(v.slice(0, GOAL_NAME_MAX))}
-            onGoalAmountText={setGoalAmountText}
+            incomeSource={incomeSource}
+            onIncomeSource={setIncomeSource}
+            incomeText={incomeText}
+            onIncomeText={(v) => setIncomeText(v.replace(/[^0-9.]/g, ''))}
+            budgetText={budgetText}
+            onBudgetText={(v) => setBudgetText(v.replace(/[^0-9.]/g, ''))}
             error={error}
             onNext={goNext}
             bottomInset={bottomInset}
@@ -390,32 +362,15 @@ export default function SignupScreen() {
         )}
 
         {step === 5 && (
-          <LoansStep
-            currency={primaryCurrency}
-            nickname={loanNickname}
-            balanceText={loanBalanceText}
-            monthlyText={loanMonthlyText}
-            onNickname={(v) => setLoanNickname(v.slice(0, LOAN_NAME_MAX))}
-            onBalance={setLoanBalanceText}
-            onMonthly={setLoanMonthlyText}
-            error={error}
-            onNext={goNext}
-            bottomInset={bottomInset}
-          />
-        )}
-
-        {step === 6 && (
           <YoureInStep
-            sub={step6Sub}
             firstName={displayFirst}
-            q1={q1}
-            q2={q2}
-            onPickQ1={setQ1}
-            onPickQ2={setQ2}
-            personality={personality}
+            avatarId={avatarId}
+            currency={primaryCurrency}
+            monthlyIncome={monthlyIncome}
+            monthlyBudget={monthlyBudget}
+            incomeSource={incomeSource}
             error={error}
             saving={saving}
-            onQuizNext={onStep6QuizNext}
             onFinish={onFinishOnboarding}
             bottomInset={bottomInset}
           />
@@ -426,14 +381,14 @@ export default function SignupScreen() {
 }
 
 /* ──────────────────────────────────────────────────────────────────────
- * Stepper — 7 circles + caption
+ * Stepper — 5 circles + caption
  * ──────────────────────────────────────────────────────────────────── */
 
 function Stepper({ step, screenW }: { step: StepId; screenW: number }) {
   const C = useAppTheme();
   const active = STEPS.find((s) => s.id === step) ?? STEPS[0];
 
-  // Sizing: keep circles small enough that 7 fit comfortably on narrow phones.
+  // Sizing: keep circles small enough that all fit comfortably on narrow phones.
   // Hide per-circle labels — we render just the active label below the row.
   const HORIZONTAL_PAD = 16;
   const usableW = screenW - HORIZONTAL_PAD * 2;
@@ -572,7 +527,7 @@ function NameStep(props: NameStepProps) {
 }
 
 /* ──────────────────────────────────────────────────────────────────────
- * Step 3 — Avatar
+ * Step 2 — Avatar
  * ──────────────────────────────────────────────────────────────────── */
 
 interface AvatarStepProps {
@@ -719,7 +674,7 @@ function AvatarStep(props: AvatarStepProps) {
 }
 
 /* ──────────────────────────────────────────────────────────────────────
- * Step 4 — Currency
+ * Step 3 — Currency
  * ──────────────────────────────────────────────────────────────────── */
 
 interface CurrencyStepProps {
@@ -764,26 +719,37 @@ function CurrencyStep(props: CurrencyStepProps) {
   );
 }
 
+
 /* ──────────────────────────────────────────────────────────────────────
- * Step 5 — Saving goal (skippable)
+ * Step 4 — Money picture (skippable)
+ *
+ * Monthly income, its source, and a monthly spending cap. Everything is
+ * optional (asking for income during onboarding is high-friction, so we
+ * never require it). The cap becomes the real overall budget for this
+ * month, which powers Safe-to-Spend on Home immediately.
  * ──────────────────────────────────────────────────────────────────── */
 
-interface GoalStepProps {
+interface MoneyStepProps {
   currency: CurrencyCode;
-  goalName: string;
-  goalAmountText: string;
-  onGoalName: (v: string) => void;
-  onGoalAmountText: (v: string) => void;
+  incomeSource: string | null;
+  onIncomeSource: (v: string | null) => void;
+  incomeText: string;
+  onIncomeText: (v: string) => void;
+  budgetText: string;
+  onBudgetText: (v: string) => void;
   error: string | null;
   onNext: () => void;
   bottomInset: number;
 }
 
-function GoalStep(props: GoalStepProps) {
+function MoneyStep(props: MoneyStepProps) {
   const C = useAppTheme();
   const symbol = CURRENCIES[props.currency].symbol;
-  const filled = props.goalName.trim().length > 0 || props.goalAmountText.trim().length > 0;
-  const ctaLabel = filled ? 'Continue' : 'Skip for now';
+  const income = Number(props.incomeText.replace(/[^0-9.]/g, '')) || 0;
+  const budget = Number(props.budgetText.replace(/[^0-9.]/g, '')) || 0;
+  const filled = income > 0 || budget > 0 || props.incomeSource !== null;
+  const suggested = income > 0 ? Math.round(income * 0.8) : 0;
+  const overIncome = income > 0 && budget > income;
 
   return (
     <View style={{ flex: 1 }}>
@@ -793,28 +759,59 @@ function GoalStep(props: GoalStepProps) {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 32 }}
       >
-        <Text style={[styles.h2, { color: C.textPrimary }]}>
-          What are you saving for?
-        </Text>
+        <Text style={[styles.h2, { color: C.textPrimary }]}>Your money picture</Text>
         <Text style={[styles.sub, { color: C.textSecondary }]}>
-          Set your first stashbox — a goal, a target, and away you go. Optional.
+          Sets your monthly budget so we can show what&apos;s safe to spend. Optional, and it
+          stays private to you.
         </Text>
 
         {props.error && <ErrorBanner message={props.error} />}
 
-        <View style={{ marginTop: 20, gap: 12 }}>
+        {/* Income source */}
+        <Text style={[styles.sectionTag, { color: C.textMuted, marginTop: 22 }]}>
+          WHERE DOES YOUR MONEY COME FROM?
+        </Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          {INCOME_SOURCES.map((s) => {
+            const selected = props.incomeSource === s.value;
+            return (
+              <Pressable
+                key={s.value}
+                onPress={() => props.onIncomeSource(selected ? null : s.value)}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  borderRadius: 999,
+                  backgroundColor: selected ? C.accentLight : C.surface,
+                  borderWidth: 1.5,
+                  borderColor: selected ? C.accent : C.border,
+                }}
+              >
+                <Text style={{ fontSize: 15 }}>{s.emoji}</Text>
+                <Text
+                  style={{
+                    fontFamily: selected ? 'DMSans_600SemiBold' : 'DMSans_500Medium',
+                    fontSize: 13,
+                    color: selected ? C.accentDark : C.textPrimary,
+                  }}
+                >
+                  {s.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {/* Amounts */}
+        <View style={{ marginTop: 22, gap: 12 }}>
           <BoxInput
-            label="Goal name (e.g. Vacation fund)"
-            value={props.goalName}
-            onChangeText={props.onGoalName}
-            autoCapitalize="sentences"
-            leadingIcon={<Target size={18} color={C.textMuted} />}
-          />
-          <BoxInput
-            label={`Target amount (${symbol})`}
-            value={props.goalAmountText}
-            onChangeText={(v) => props.onGoalAmountText(v.replace(/[^0-9.]/g, ''))}
-            keyboardType="default"
+            label={`Monthly income (${symbol})`}
+            value={props.incomeText}
+            onChangeText={props.onIncomeText}
+            keyboardType="decimal-pad"
             leadingIcon={
               <Text
                 style={{
@@ -828,7 +825,48 @@ function GoalStep(props: GoalStepProps) {
               </Text>
             }
           />
+          <BoxInput
+            label={`Monthly spending budget (${symbol})`}
+            value={props.budgetText}
+            onChangeText={props.onBudgetText}
+            keyboardType="decimal-pad"
+            leadingIcon={<Wallet size={18} color={C.textMuted} />}
+          />
         </View>
+
+        {/* Budget helper: one-tap 80%-of-income suggestion. */}
+        {suggested > 0 && budget === 0 && (
+          <Pressable
+            onPress={() => props.onBudgetText(String(suggested))}
+            style={{
+              alignSelf: 'flex-start',
+              marginTop: 10,
+              paddingHorizontal: 12,
+              paddingVertical: 7,
+              borderRadius: 999,
+              backgroundColor: C.accentLight,
+            }}
+          >
+            <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 12, color: C.accentDark }}>
+              Suggest {formatAmount(suggested, props.currency)} (80% of income)
+            </Text>
+          </Pressable>
+        )}
+
+        {overIncome && (
+          <Text
+            style={{
+              fontFamily: 'DMSans_500Medium',
+              fontSize: 12,
+              color: '#B45309',
+              marginTop: 10,
+              marginLeft: 4,
+              lineHeight: 16,
+            }}
+          >
+            That budget is more than your income. Doable, but worth a second look.
+          </Text>
+        )}
 
         <Text
           style={{
@@ -840,13 +878,13 @@ function GoalStep(props: GoalStepProps) {
             lineHeight: 16,
           }}
         >
-          We&apos;ll create a moneybox with sensible defaults (30 days, daily fills).
-          Tweak everything from the moneybox screen later.
+          The budget becomes this month&apos;s spending cap. Change it any time under
+          Expenses.
         </Text>
       </ScrollView>
 
       <PrimaryFooter
-        ctaLabel={ctaLabel}
+        ctaLabel={filled ? 'Continue' : 'Skip for now'}
         onPress={props.onNext}
         bottomInset={props.bottomInset}
       />
@@ -855,272 +893,157 @@ function GoalStep(props: GoalStepProps) {
 }
 
 /* ──────────────────────────────────────────────────────────────────────
- * Step 6 — Loans (skippable)
- * ──────────────────────────────────────────────────────────────────── */
-
-interface LoansStepProps {
-  currency: CurrencyCode;
-  nickname: string;
-  balanceText: string;
-  monthlyText: string;
-  onNickname: (v: string) => void;
-  onBalance: (v: string) => void;
-  onMonthly: (v: string) => void;
-  error: string | null;
-  onNext: () => void;
-  bottomInset: number;
-}
-
-function LoansStep(props: LoansStepProps) {
-  const C = useAppTheme();
-  const symbol = CURRENCIES[props.currency].symbol;
-  const filled =
-    props.nickname.trim().length > 0 ||
-    props.balanceText.trim().length > 0 ||
-    props.monthlyText.trim().length > 0;
-  const ctaLabel = filled ? 'Continue' : 'Skip for now';
-
-  return (
-    <View style={{ flex: 1 }}>
-      <ScrollView
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 32 }}
-      >
-        <Text style={[styles.h2, { color: C.textPrimary }]}>
-          Tracking a student loan?
-        </Text>
-        <Text style={[styles.sub, { color: C.textSecondary }]}>
-          We&apos;ll show your payoff timeline alongside your stash. Optional — you can add later.
-        </Text>
-
-        {props.error && <ErrorBanner message={props.error} />}
-
-        <View style={{ marginTop: 20, gap: 12 }}>
-          <BoxInput
-            label="Loan nickname (e.g. Sallie Mae)"
-            value={props.nickname}
-            onChangeText={props.onNickname}
-            autoCapitalize="words"
-            leadingIcon={<GraduationCap size={18} color={C.textMuted} />}
-          />
-          <BoxInput
-            label={`Current balance (${symbol})`}
-            value={props.balanceText}
-            onChangeText={(v) => props.onBalance(v.replace(/[^0-9.]/g, ''))}
-            leadingIcon={
-              <Text
-                style={{
-                  fontFamily: 'DMSans_700Bold',
-                  fontSize: 16,
-                  color: C.textMuted,
-                  minWidth: 18,
-                }}
-              >
-                {symbol}
-              </Text>
-            }
-          />
-          <BoxInput
-            label={`Monthly payment (${symbol})`}
-            value={props.monthlyText}
-            onChangeText={(v) => props.onMonthly(v.replace(/[^0-9.]/g, ''))}
-            leadingIcon={
-              <Text
-                style={{
-                  fontFamily: 'DMSans_700Bold',
-                  fontSize: 16,
-                  color: C.textMuted,
-                  minWidth: 18,
-                }}
-              >
-                {symbol}
-              </Text>
-            }
-          />
-        </View>
-
-        <Text
-          style={{
-            fontFamily: 'DMSans_400Regular',
-            fontSize: 12,
-            color: C.textMuted,
-            marginTop: 12,
-            marginLeft: 4,
-            lineHeight: 16,
-          }}
-        >
-          Defaults to private loan, 6% APR, 10-year standard plan. Edit anything later
-          from the loan detail screen.
-        </Text>
-      </ScrollView>
-
-      <PrimaryFooter
-        ctaLabel={ctaLabel}
-        onPress={props.onNext}
-        bottomInset={props.bottomInset}
-      />
-    </View>
-  );
-}
-
-/* ──────────────────────────────────────────────────────────────────────
- * Step 7 — You're in! (quiz → reveal → Start saving)
+ * Step 5 — You're in! Celebration + proof of what was just set up.
+ * No quiz: the old personality questions fed nothing but a profile card.
+ * Showing the wiring ("here's what we set up") is worth more than a
+ * sticker — it answers "did any of that actually do something?"
  * ──────────────────────────────────────────────────────────────────── */
 
 interface YoureInStepProps {
-  sub: Step6Sub;
   firstName: string;
-  q1: string | null;
-  q2: string | null;
-  onPickQ1: (v: string) => void;
-  onPickQ2: (v: string) => void;
-  personality: { type: string; emoji: string; desc: string } | null;
+  avatarId: string;
+  currency: CurrencyCode;
+  monthlyIncome: number;
+  monthlyBudget: number;
+  incomeSource: string | null;
   error: string | null;
   saving: boolean;
-  onQuizNext: () => void;
   onFinish: () => void;
   bottomInset: number;
 }
 
 function YoureInStep(props: YoureInStepProps) {
   const C = useAppTheme();
+  const avatar = FREE_AVATARS.find((a) => a.id === props.avatarId) ?? FREE_AVATARS[0];
+  const sourceMeta = INCOME_SOURCES.find((s) => s.value === props.incomeSource);
+
+  const setupRows: { emoji: string; text: string }[] = [
+    {
+      emoji: CURRENCIES[props.currency].flag,
+      text: `${props.currency} set as your currency`,
+    },
+  ];
+  if (props.monthlyIncome > 0) {
+    setupRows.push({
+      emoji: sourceMeta?.emoji ?? '💵',
+      text: `${formatAmount(props.monthlyIncome, props.currency)} monthly income logged${sourceMeta ? ` as ${sourceMeta.label}` : ''}`,
+    });
+  }
+  if (props.monthlyBudget > 0) {
+    setupRows.push({
+      emoji: '💰',
+      text: `${formatAmount(props.monthlyBudget, props.currency)} monthly budget set`,
+    });
+  }
 
   return (
     <View style={{ flex: 1 }}>
       <ScrollView
-        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 16 }}
+        contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 16 }}
       >
         {props.error && <ErrorBanner message={props.error} />}
 
-        {props.sub === 'quiz' && (
-          <>
-            <Text style={[styles.h2, { color: C.textPrimary }]}>One last thing…</Text>
-            <Text style={[styles.sub, { color: C.textSecondary }]}>
-              What kind of saver are you? Two quick taps.
-            </Text>
+        <View style={{ alignItems: 'center' }}>
+          <AvatarVisual avatar={avatar} size={104} />
+          <Text
+            style={{
+              fontFamily: 'DMSans_500Medium',
+              fontSize: 12,
+              color: C.accentDark,
+              letterSpacing: 1,
+              marginTop: 20,
+            }}
+          >
+            {props.firstName ? `${props.firstName.toUpperCase()}, ` : ''}YOU&apos;RE IN
+          </Text>
+          <Text
+            style={{
+              fontFamily: 'DMSans_700Bold',
+              fontSize: 30,
+              lineHeight: 38,
+              color: C.textPrimary,
+              textAlign: 'center',
+              marginTop: 6,
+              letterSpacing: -0.4,
+            }}
+          >
+            Ready to stash 🎉
+          </Text>
+        </View>
 
-            <Text style={[styles.sectionTag, { color: C.textMuted, marginTop: 22 }]}>
-              HOW DO YOU LIKE TO SAVE?
-            </Text>
-            <View style={{ gap: 8 }}>
-              {QUIZ_Q1.map((opt) => (
-                <QuizRow
-                  key={opt.value}
-                  option={opt}
-                  selected={props.q1 === opt.value}
-                  onPress={() => props.onPickQ1(opt.value)}
-                />
-              ))}
+        {/* Proof of setup — every onboarding answer maps to something real. */}
+        <View
+          style={{
+            marginTop: 28,
+            backgroundColor: C.surface,
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: C.border,
+            padding: 16,
+            gap: 12,
+          }}
+        >
+          <Text
+            style={{
+              fontFamily: 'DMSans_500Medium',
+              fontSize: 11,
+              color: C.textMuted,
+              letterSpacing: 0.6,
+            }}
+          >
+            HERE&apos;S WHAT WE SET UP
+          </Text>
+          {setupRows.map((row) => (
+            <View key={row.text} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <View
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 10,
+                  backgroundColor: C.accentLight,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Text style={{ fontSize: 15 }}>{row.emoji}</Text>
+              </View>
+              <Text
+                style={{
+                  flex: 1,
+                  fontFamily: 'DMSans_500Medium',
+                  fontSize: 14,
+                  color: C.textPrimary,
+                  lineHeight: 19,
+                }}
+              >
+                {row.text}
+              </Text>
+              <Check size={16} color={C.accent} strokeWidth={2.5} />
             </View>
-
-            <Text style={[styles.sectionTag, { color: C.textMuted, marginTop: 22 }]}>
-              HOW MANY GOALS AT ONCE?
+          ))}
+          {props.monthlyIncome <= 0 && props.monthlyBudget <= 0 && (
+            <Text
+              style={{
+                fontFamily: 'DMSans_400Regular',
+                fontSize: 12,
+                color: C.textMuted,
+                lineHeight: 17,
+              }}
+            >
+              You can set a budget and log income any time from the Expenses tab.
             </Text>
-            <View style={{ gap: 8 }}>
-              {QUIZ_Q2.map((opt) => (
-                <QuizRow
-                  key={opt.value}
-                  option={opt}
-                  selected={props.q2 === opt.value}
-                  onPress={() => props.onPickQ2(opt.value)}
-                />
-              ))}
-            </View>
-          </>
-        )}
-
-        {props.sub === 'reveal' && props.personality && (
-          <RevealView firstName={props.firstName} personality={props.personality} />
-        )}
+          )}
+        </View>
       </ScrollView>
 
-      {props.sub === 'quiz' ? (
-        <PrimaryFooter
-          ctaLabel={props.personality ? 'See my result' : 'Pick both options'}
-          disabled={!props.personality}
-          onPress={props.onQuizNext}
-          bottomInset={props.bottomInset}
-        />
-      ) : (
-        <PrimaryFooter
-          ctaLabel={props.saving ? '' : 'Start saving'}
-          loading={props.saving}
-          disabled={props.saving}
-          onPress={props.onFinish}
-          bottomInset={props.bottomInset}
-        />
-      )}
-    </View>
-  );
-}
-
-function RevealView({
-  firstName,
-  personality,
-}: {
-  firstName: string;
-  personality: { type: string; emoji: string; desc: string };
-}) {
-  const C = useAppTheme();
-  return (
-    <View style={{ alignItems: 'center', justifyContent: 'center', paddingTop: 24 }}>
-      <View
-        style={{
-          backgroundColor: C.accentLight,
-          width: 104,
-          height: 104,
-          borderRadius: 30,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Text style={{ fontSize: 56 }}>{personality.emoji}</Text>
-      </View>
-      <Text
-        style={{
-          fontFamily: 'DMSans_500Medium',
-          fontSize: 12,
-          color: C.accentDark,
-          letterSpacing: 1,
-          marginTop: 24,
-        }}
-      >
-        {firstName ? `${firstName.toUpperCase()}, YOU'RE` : "YOU'RE"}
-      </Text>
-      <Text
-        numberOfLines={2}
-        adjustsFontSizeToFit
-        minimumFontScale={0.7}
-        style={{
-          fontFamily: 'DMSans_700Bold',
-          fontSize: 32,
-          lineHeight: 40,
-          color: C.textPrimary,
-          textAlign: 'center',
-          marginTop: 6,
-          paddingHorizontal: 16,
-          letterSpacing: -0.4,
-        }}
-      >
-        {personality.type}
-      </Text>
-      <Text
-        style={{
-          fontFamily: 'DMSans_400Regular',
-          fontSize: 15,
-          color: C.textSecondary,
-          textAlign: 'center',
-          marginTop: 10,
-          lineHeight: 22,
-          paddingHorizontal: 8,
-        }}
-      >
-        {personality.desc}
-      </Text>
+      <PrimaryFooter
+        ctaLabel={props.saving ? '' : 'Start saving'}
+        loading={props.saving}
+        disabled={props.saving}
+        onPress={props.onFinish}
+        bottomInset={props.bottomInset}
+      />
     </View>
   );
 }
@@ -1133,7 +1056,7 @@ interface BoxInputProps {
   label: string;
   value: string;
   onChangeText: (v: string) => void;
-  keyboardType?: 'default' | 'email-address';
+  keyboardType?: 'default' | 'email-address' | 'decimal-pad';
   autoCapitalize?: 'none' | 'words' | 'sentences';
   autoComplete?:
     | 'email'
@@ -1280,17 +1203,26 @@ function PrimaryFooter(props: PrimaryFooterProps) {
         style={({ pressed }) => ({
           borderRadius: 16,
           transform: [{ scale: pressed && !props.disabled ? 0.98 : 1 }],
-          shadowColor: C.buttonPrimaryBg,
+          shadowColor: props.disabled ? 'transparent' : C.heroTop,
           shadowOffset: { width: 0, height: 8 },
-          shadowOpacity: props.disabled ? 0 : 0.25,
+          shadowOpacity: 0.25,
           shadowRadius: 20,
           elevation: props.disabled ? 0 : 6,
         })}
       >
-        <View
+        {/* Brand gradient when actionable — matches the welcome and OTP CTAs
+         *  the user just came through. */}
+        <LinearGradient
+          colors={
+            props.disabled
+              ? [C.borderLight, C.borderLight, C.borderLight]
+              : [C.heroTop, C.heroMid, C.heroBot]
+          }
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
           style={{
-            backgroundColor: props.disabled ? C.borderLight : C.buttonPrimaryBg,
             borderRadius: 16,
+            overflow: 'hidden',
             paddingVertical: 18,
             paddingHorizontal: 24,
             flexDirection: 'row',
@@ -1300,7 +1232,7 @@ function PrimaryFooter(props: PrimaryFooterProps) {
           }}
         >
           {props.loading ? (
-            <ActivityIndicator color={C.buttonPrimaryText} />
+            <ActivityIndicator color="#FFFFFF" />
           ) : (
             <>
               <Text
@@ -1308,71 +1240,18 @@ function PrimaryFooter(props: PrimaryFooterProps) {
                 style={{
                   fontFamily: 'DMSans_700Bold',
                   fontSize: 16,
-                  color: props.disabled ? C.textMuted : C.buttonPrimaryText,
+                  color: props.disabled ? C.textMuted : '#FFFFFF',
                   letterSpacing: 0.2,
                 }}
               >
                 {props.ctaLabel}
               </Text>
-              {!props.disabled && (
-                <ArrowRight size={18} color={C.buttonPrimaryText} strokeWidth={2.5} />
-              )}
+              {!props.disabled && <ArrowRight size={18} color="#FFFFFF" strokeWidth={2.5} />}
             </>
           )}
-        </View>
+        </LinearGradient>
       </Pressable>
     </View>
-  );
-}
-
-interface QuizRowProps {
-  option: QuizOption;
-  selected: boolean;
-  onPress: () => void;
-}
-
-function QuizRow({ option, selected, onPress }: QuizRowProps) {
-  const C = useAppTheme();
-  return (
-    <Pressable
-      onPress={onPress}
-      style={{
-        backgroundColor: C.surface,
-        borderRadius: 14,
-        padding: 14,
-        borderWidth: selected ? 2 : 1,
-        borderColor: selected ? C.accent : C.border,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-      }}
-    >
-      <Text style={{ fontSize: 20 }}>{option.emoji}</Text>
-      <Text
-        style={{
-          fontFamily: 'DMSans_500Medium',
-          fontSize: 14,
-          color: C.textPrimary,
-          flex: 1,
-        }}
-      >
-        {option.label}
-      </Text>
-      {selected && (
-        <View
-          style={{
-            width: 20,
-            height: 20,
-            borderRadius: 10,
-            backgroundColor: C.accent,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Check size={12} color="#FFFFFF" />
-        </View>
-      )}
-    </Pressable>
   );
 }
 

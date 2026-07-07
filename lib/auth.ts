@@ -90,8 +90,12 @@ export async function deleteAccount(): Promise<void> {
     'stashbox_personality',
   ]);
 
+  // Sign out only — no signInAnonymously here. It added a full network
+  // round-trip to an already multi-step operation (the visible "delete
+  // hangs" delay) and raced the welcome redirect the same way it did for
+  // logout. The anonymous fallback for fresh launches lives in
+  // session.ts init().
   await supabase.auth.signOut({ scope: 'local' });
-  await supabase.auth.signInAnonymously();
 }
 
 /* ──────────────────────────────────────────────────────────────────────

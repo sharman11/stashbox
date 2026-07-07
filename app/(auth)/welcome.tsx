@@ -13,11 +13,22 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import Animated, {
+  interpolate,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { SpringPressable } from '@/components/SpringPressable';
 import { useProfileStore } from '@/lib/stores/profile';
 import { useSessionStore } from '@/lib/stores/session';
 import { useAppTheme } from '@/lib/stores/theme';
+
+// Reanimated's pre-wrapped FlatList (see HomeHero for why not
+// createAnimatedComponent).
+const AnimatedFlatList = Animated.FlatList;
 
 interface Slide {
   key: string;
@@ -70,9 +81,22 @@ export default function WelcomeScreen() {
   const [index, setIndex] = useState(0);
   const listRef = useRef<FlatList<Slide>>(null);
 
+  // Continuous scroll position — drives the morphing pagination dots.
+  const scrollX = useSharedValue(0);
+  const onScroll = useAnimatedScrollHandler({
+    onScroll: (e) => {
+      scrollX.value = e.contentOffset.x;
+    },
+  });
+
   const onMomentumScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const next = Math.round(e.nativeEvent.contentOffset.x / width);
     if (next !== index) setIndex(next);
+  };
+
+  const goTo = (i: number) => {
+    listRef.current?.scrollToIndex({ index: i, animated: true });
+    setIndex(i);
   };
 
   // Self-redirect for logged-in users who get routed here by a stale restore
@@ -88,45 +112,38 @@ export default function WelcomeScreen() {
     <View style={{ flex: 1, backgroundColor: C.pageBg }}>
       <StatusBar style="dark" />
 
-      <FlatList
-        ref={listRef}
+      <AnimatedFlatList
+        ref={listRef as never}
         data={SLIDES}
-        keyExtractor={(s) => s.key}
+        keyExtractor={(s) => (s as Slide).key}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
         onMomentumScrollEnd={onMomentumScrollEnd}
         renderItem={({ item }) => (
-          <SlideView slide={item} width={width} heroHeight={heroHeight} />
+          <SlideView slide={item as Slide} width={width} heroHeight={heroHeight} />
         )}
         style={{ flex: 1 }}
       />
 
-      {/* Pagination dots */}
+      {/* Pagination dots — morph with the swipe (same pattern as the home
+       *  hero pager) and are tappable to jump to a slide. */}
       <View
         style={{
           flexDirection: 'row',
           justifyContent: 'center',
           alignItems: 'center',
-          gap: 8,
           paddingTop: 4,
-          paddingBottom: 20,
+          paddingBottom: 16,
         }}
       >
-        {SLIDES.map((s, i) => {
-          const active = i === index;
-          return (
-            <View
-              key={s.key}
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: 4,
-                backgroundColor: active ? C.textPrimary : C.border,
-              }}
-            />
-          );
-        })}
+        {SLIDES.map((s, i) => (
+          <Pressable key={s.key} onPress={() => goTo(i)} hitSlop={8} style={{ padding: 4 }}>
+            <WelcomeDot index={i} scrollX={scrollX} pageWidth={width} accent={C.accent} />
+          </Pressable>
+        ))}
       </View>
 
       {/* CTA — one button. There's no separate "log in" path any more:
@@ -137,17 +154,17 @@ export default function WelcomeScreen() {
           paddingBottom: Math.max(insets.bottom, 16) + 8,
         }}
       >
-        <Pressable
+        <SpringPressable
           onPress={() => router.push('/(auth)/email-otp')}
-          style={({ pressed }) => ({
+          haptic
+          style={{
             borderRadius: 14,
-            transform: [{ scale: pressed ? 0.98 : 1 }],
             shadowColor: C.heroBot,
             shadowOffset: { width: 0, height: 8 },
             shadowOpacity: 0.35,
             shadowRadius: 20,
             elevation: 8,
-          })}
+          }}
         >
           <LinearGradient
             colors={[C.heroTop, C.heroMid, C.heroBot]}
@@ -175,9 +192,60 @@ export default function WelcomeScreen() {
               Continue with email
             </Text>
           </LinearGradient>
-        </Pressable>
+        </SpringPressable>
+
+        {/* What happens next — removes the "is this a password signup?"
+         *  hesitation at the commitment moment. */}
+        <Text
+          allowFontScaling={false}
+          style={{
+            fontFamily: 'DMSans_400Regular',
+            fontSize: 12,
+            color: C.textMuted,
+            textAlign: 'center',
+            marginTop: 10,
+          }}
+        >
+          No password. We&apos;ll email you a code.
+        </Text>
       </View>
     </View>
+  );
+}
+
+/** Pagination dot that stretches into a pill as its page becomes active —
+ *  interpolated from the live scroll offset, same as the home hero pager. */
+function WelcomeDot({
+  index,
+  scrollX,
+  pageWidth,
+  accent,
+}: {
+  index: number;
+  scrollX: ReturnType<typeof useSharedValue<number>>;
+  pageWidth: number;
+  accent: string;
+}) {
+  const animatedStyle = useAnimatedStyle(() => {
+    const distance = Math.abs(scrollX.value / pageWidth - index);
+    const clamped = Math.min(1, distance);
+    return {
+      width: interpolate(clamped, [0, 1], [22, 8]),
+      opacity: interpolate(clamped, [0, 1], [1, 0.3]),
+    };
+  });
+
+  return (
+    <Animated.View
+      style={[
+        {
+          height: 8,
+          borderRadius: 4,
+          backgroundColor: accent,
+        },
+        animatedStyle,
+      ]}
+    />
   );
 }
 
