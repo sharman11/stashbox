@@ -22,12 +22,22 @@ interface BudgetsState {
   loadAll: (userId: string, force?: boolean) => Promise<void>;
   /** Upserts: one row per (user, category, period). */
   setBudget: (input: SetBudgetInput) => Promise<ExpenseBudget>;
+  /** Rolls the most recent month's budgets into the current month when the
+   *  current month has none. Call after loadAll. */
+  ensureCurrentMonth: (userId: string) => Promise<void>;
   remove: (id: string) => Promise<void>;
   reset: () => void;
 }
 
 const CACHE_TTL_MS = 15_000;
 let lastLoad = 0;
+/** Month the rollover already ran for this session — it only needs one pass. */
+let rolledForMonth: string | null = null;
+
+function currentMonth(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+}
 
 function rowToBudget(row: Record<string, unknown>): ExpenseBudget {
   return {
@@ -113,6 +123,39 @@ export const useExpenseBudgetsStore = create<BudgetsState>((set, get) => ({
     return budget;
   },
 
+  ensureCurrentMonth: async (userId) => {
+    const month = currentMonth();
+    if (rolledForMonth === month) return;
+    rolledForMonth = month;
+
+    const budgets = get().budgets;
+    // Current month already has budgets → nothing to roll.
+    if (budgets.some((b) => b.periodMonth === month)) return;
+
+    // Budgets are standing intents: a new calendar month shouldn't silently
+    // drop the caps the user set. Copy the most recent prior month forward
+    // (overall + per-category).
+    const priorMonths = [
+      ...new Set(budgets.filter((b) => b.periodMonth < month).map((b) => b.periodMonth)),
+    ].sort();
+    const source = priorMonths[priorMonths.length - 1];
+    if (!source) return;
+
+    for (const b of budgets.filter((x) => x.periodMonth === source)) {
+      try {
+        await get().setBudget({
+          userId,
+          categoryId: b.categoryId,
+          periodMonth: month,
+          limitCents: b.limitCents,
+          currency: b.currency,
+        });
+      } catch {
+        // Non-fatal: the user can set the month's budget manually.
+      }
+    }
+  },
+
   remove: async (id) => {
     const { error } = await supabase.from('expense_budgets').delete().eq('id', id);
     if (error) throw new Error(error.message);
@@ -122,6 +165,7 @@ export const useExpenseBudgetsStore = create<BudgetsState>((set, get) => ({
   reset: () => {
     set({ budgets: [], loading: false, error: null });
     lastLoad = 0;
+    rolledForMonth = null;
   },
 }));
 

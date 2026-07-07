@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -33,10 +32,14 @@ import { MultiCurrencyPicker } from '@/components/MultiCurrencyPicker';
 import { AVATARS, DEFAULT_AVATAR } from '@/lib/avatars';
 import { CURRENCIES, formatAmount, type CurrencyCode } from '@/lib/currency';
 import { detectLocaleCurrency } from '@/lib/locale-currency';
+import {
+  INCOME_SOURCES,
+  ensureIncomeCategoryId,
+  writeIncomeProfile,
+} from '@/lib/expenses/income-profile';
 import { useAppReadyStore } from '@/lib/stores/app-ready';
 import { useAvatarStore } from '@/lib/stores/avatar';
 import { useExpenseBudgetsStore } from '@/lib/stores/expense-budgets';
-import { useExpenseCategoriesStore } from '@/lib/stores/expense-categories';
 import { currentMonthAnchor, todayDate, useExpenseTransactionsStore } from '@/lib/stores/expense-transactions';
 import { useProfileStore } from '@/lib/stores/profile';
 import { useSessionStore } from '@/lib/stores/session';
@@ -68,17 +71,6 @@ const STEPS: readonly StepMeta[] = [
   { id: 4, label: 'Money picture', Icon: Wallet },
   { id: 5, label: "You're in!", Icon: Heart },
 ];
-
-/** Income-source options for the Money picture step. `category` is the
- *  income category the seeded transaction is filed under (created if the
- *  user's list doesn't have it — only "Salary" ships as a default). */
-const INCOME_SOURCES = [
-  { emoji: '💼', label: 'Salary', value: 'salary', category: { name: 'Salary', emoji: '💼', color: '#10B981' } },
-  { emoji: '🏪', label: 'Business', value: 'business', category: { name: 'Business', emoji: '🏪', color: '#3B82F6' } },
-  { emoji: '💻', label: 'Freelance', value: 'freelance', category: { name: 'Freelance', emoji: '💻', color: '#8B5CF6' } },
-  { emoji: '🎁', label: 'Family', value: 'family', category: { name: 'Family', emoji: '🎁', color: '#EC4899' } },
-  { emoji: '💸', label: 'Other', value: 'other', category: { name: 'Other income', emoji: '💸', color: '#F59E0B' } },
-] as const;
 
 /* ──────────────────────────────────────────────────────────────────────
  * Screen
@@ -186,28 +178,7 @@ export default function SignupScreen() {
       // us your salary and then never seeing it anywhere is a broken promise.
       if (monthlyIncome > 0 && userId) {
         try {
-          const catStore = useExpenseCategoriesStore.getState();
-          await catStore.seedDefaultsIfEmpty(userId);
-          const meta = INCOME_SOURCES.find((s) => s.value === incomeSource)?.category;
-          let categoryId: string | null = null;
-          if (meta) {
-            const existing = useExpenseCategoriesStore
-              .getState()
-              .categories.find(
-                (c) => c.type === 'income' && c.name.toLowerCase() === meta.name.toLowerCase(),
-              );
-            if (existing) {
-              categoryId = existing.id;
-            } else {
-              await catStore.create({ userId, type: 'income', ...meta });
-              categoryId =
-                useExpenseCategoriesStore
-                  .getState()
-                  .categories.find(
-                    (c) => c.type === 'income' && c.name.toLowerCase() === meta.name.toLowerCase(),
-                  )?.id ?? null;
-            }
-          }
+          const categoryId = await ensureIncomeCategoryId(userId, incomeSource);
           await useExpenseTransactionsStore.getState().create({
             userId,
             type: 'income',
@@ -224,14 +195,12 @@ export default function SignupScreen() {
         }
       }
       if (monthlyIncome > 0 || incomeSource) {
-        await AsyncStorage.setItem(
-          'stashbox_income_profile',
-          JSON.stringify({
-            monthlyIncomeCents: monthlyIncome > 0 ? Math.round(monthlyIncome * 100) : null,
-            source: incomeSource,
-            currency: primaryCurrency,
-          }),
-        );
+        // Powers the new-month income nudge on the Expenses tab.
+        await writeIncomeProfile({
+          monthlyIncomeCents: monthlyIncome > 0 ? Math.round(monthlyIncome * 100) : null,
+          source: incomeSource,
+          currency: primaryCurrency,
+        });
       }
 
       router.replace('/');

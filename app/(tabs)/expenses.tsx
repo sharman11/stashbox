@@ -25,6 +25,7 @@ import { AnimatedNumber } from '@/components/AnimatedNumber';
 import { AvatarVisual } from '@/components/AvatarVisual';
 import { BarChart, type BarDatum } from '@/components/charts/BarChart';
 import { InsightsCard } from '@/components/expenses/InsightsCard';
+import { MonthlyIncomeCard } from '@/components/expenses/MonthlyIncomeCard';
 import { SurplusRouterCard } from '@/components/expenses/SurplusRouterCard';
 import { SpringPressable } from '@/components/SpringPressable';
 import { useAvatarStore } from '@/lib/stores/avatar';
@@ -82,6 +83,8 @@ export default function ExpensesScreen() {
     (async () => {
       await Promise.all([loadCategories(userId), loadTransactions(userId), loadBudgets(userId)]);
       await seedDefaults(userId);
+      // Roll last month's budgets into a fresh month (standing intents).
+      await useExpenseBudgetsStore.getState().ensureCurrentMonth(userId);
       const fresh = await getFxRates();
       setRates(fresh);
     })().catch(() => {
@@ -594,6 +597,12 @@ export default function ExpensesScreen() {
             </SpringPressable>
           )}
         </View>
+
+        {/* ── Monthly income nudge — new month, stored income profile, no
+         *  income logged yet → one-tap log. Current month only. */}
+        {periodAnchor === currentMonthAnchor() && (
+          <MonthlyIncomeCard style={{ marginHorizontal: 16, marginTop: 12 }} />
+        )}
 
         {/* ── Spending insights (Stashbox+) ──
          *  Spacing lives on the card itself: when it renders null there is no

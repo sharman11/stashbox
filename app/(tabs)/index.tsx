@@ -43,7 +43,12 @@ export default function HomeScreen() {
       loadTransactions(userId),
       loadBudgets(userId),
       loadCategories(userId),
-    ]).then(() => setHydrated(true));
+    ]).then(() => {
+      setHydrated(true);
+      // Roll last month's budgets forward so safe-to-spend doesn't go blank
+      // on the 1st. Idempotent, guarded per month inside the store.
+      useExpenseBudgetsStore.getState().ensureCurrentMonth(userId);
+    });
   }, [userId, loadAllBoxes, loadTransactions, loadBudgets, loadCategories]);
 
   useEffect(() => {
