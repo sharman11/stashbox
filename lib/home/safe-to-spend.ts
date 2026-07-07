@@ -10,7 +10,6 @@ import { computeSafeToSpend } from '@/lib/home/safe-to-spend-core';
 import { useExpenseBudgetsStore } from '@/lib/stores/expense-budgets';
 import { useExpenseCategoriesStore } from '@/lib/stores/expense-categories';
 import { useExpenseTransactionsStore } from '@/lib/stores/expense-transactions';
-import { useLoansStore } from '@/lib/stores/loans';
 
 export type { SafeToSpend, SpendSegment, SpendPace } from '@/lib/home/safe-to-spend-core';
 
@@ -18,8 +17,6 @@ export function useSafeToSpend() {
   const budgets = useExpenseBudgetsStore((s) => s.budgets);
   const transactions = useExpenseTransactionsStore((s) => s.transactions);
   const categories = useExpenseCategoriesStore((s) => s.categories);
-  const loans = useLoansStore((s) => s.loans);
-  const paymentsByLoan = useLoansStore((s) => s.paymentsByLoan);
 
   const now = new Date();
   const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -37,7 +34,7 @@ export function useSafeToSpend() {
   }, [monthKey]);
 
   return useMemo(
-    () => computeSafeToSpend(budgets, transactions, categories, loans, paymentsByLoan, rates, new Date()),
-    [budgets, transactions, categories, loans, paymentsByLoan, rates],
+    () => computeSafeToSpend(budgets, transactions, categories, rates, new Date()),
+    [budgets, transactions, categories, rates],
   );
 }

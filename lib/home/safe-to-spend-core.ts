@@ -4,7 +4,7 @@
  * FX and calls this with `now` and `rates`.
  *
  *   spentToDate   = this month's expenses up to and including today
- *   reserved      = unpaid loan payments still owed this month (USD → budget ccy)
+ *   reserved      = detected recurring charges not yet seen this month
  *   remaining     = overall monthly cap − spentToDate
  *   discretionary = max(0, remaining − reserved)
  *   safeToday     = discretionary / daysLeft   (today-inclusive, ≥ 1)
@@ -13,7 +13,7 @@
 import type { CurrencyCode } from '@/lib/currency';
 import { convertCents } from '@/lib/expenses/fx';
 import { detectRecurring, priorMonthKeys } from '@/lib/expenses/insights';
-import type { ExpenseBudget, ExpenseCategory, ExpenseTransaction, LoanPayment, StudentLoan } from '@/lib/types';
+import type { ExpenseBudget, ExpenseCategory, ExpenseTransaction } from '@/lib/types';
 
 export type SpendPace = 'on' | 'fast' | 'over';
 
@@ -60,8 +60,6 @@ export function computeSafeToSpend(
   budgets: readonly ExpenseBudget[],
   transactions: readonly ExpenseTransaction[],
   categories: readonly ExpenseCategory[],
-  loans: readonly StudentLoan[],
-  paymentsByLoan: Record<string, readonly LoanPayment[]>,
   rates: Record<string, number>,
   now: Date,
 ): SafeToSpend {
@@ -97,15 +95,8 @@ export function computeSafeToSpend(
   segments.sort((a, b) => b.cents - a.cents);
 
   let reservedCents = 0;
-  // (a) Unpaid loan payments still owed this month.
-  for (const loan of loans) {
-    if (loan.status !== 'active') continue;
-    const paid = (paymentsByLoan[loan.id] ?? []).some((p) => p.paymentDate.startsWith(monthKey));
-    if (paid) continue;
-    reservedCents += convertCents(loan.monthlyPaymentCents, 'USD', ccy, rates);
-  }
-  // (b) Detected recurring charges (subscriptions/bills) that haven't hit yet
-  //     this month — reserve so they don't blow the daily allowance later.
+  // Detected recurring charges (subscriptions/bills) that haven't hit yet
+  // this month — reserve so they don't blow the daily allowance later.
   const recentMonths = [monthKey, ...priorMonthKeys(monthKey, 3)];
   const recurring = detectRecurring(transactions, rates, ccy, recentMonths);
   const seenThisMonth = new Set<string>();

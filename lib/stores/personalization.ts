@@ -14,10 +14,21 @@ export type HeroBackground =
   | 'leaf-frame'
   | 'forest-peek';
 
+/** The Stash tab hero background.
+ *  `gradient` = the default brand gradient (current look).
+ *  the rest are wide illustrated scenes (cozy / moneybox / mascot / minimal). */
+export type StashHero =
+  | 'gradient'
+  | 'cozy'
+  | 'moneybox'
+  | 'mascot'
+  | 'minimal';
+
 const STORAGE_KEY = 'stashbox_personalization_v1';
 
 interface Persisted {
   heroBackground: HeroBackground;
+  stashHero: StashHero;
 }
 
 interface PersonalizationState extends Persisted {
@@ -25,10 +36,12 @@ interface PersonalizationState extends Persisted {
   /** Pull saved choices off disk into the store. Safe to call multiple times. */
   hydrate: () => Promise<void>;
   setHeroBackground: (bg: HeroBackground) => Promise<void>;
+  setStashHero: (bg: StashHero) => Promise<void>;
 }
 
 const DEFAULTS: Persisted = {
   heroBackground: 'default',
+  stashHero: 'gradient',
 };
 
 async function readDisk(): Promise<Partial<Persisted>> {
@@ -79,7 +92,13 @@ export const usePersonalizationStore = create<PersonalizationState>((set, get) =
 
   setHeroBackground: async (bg) => {
     set({ heroBackground: bg });
-    const { heroBackground } = get();
-    await writeDisk({ heroBackground });
+    const { heroBackground, stashHero } = get();
+    await writeDisk({ heroBackground, stashHero });
+  },
+
+  setStashHero: async (bg) => {
+    set({ stashHero: bg });
+    const { heroBackground, stashHero } = get();
+    await writeDisk({ heroBackground, stashHero });
   },
 }));

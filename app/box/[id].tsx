@@ -2,7 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ChevronLeft, ChevronRight, Flame, Pencil, Zap } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, Pencil } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -15,7 +15,6 @@ import { EditMoneyboxModal } from '@/components/EditMoneyboxModal';
 import { MilestoneOverlay } from '@/components/MilestoneOverlay';
 import type { MilestoneKind } from '@/components/MilestoneOverlay';
 import { MilestoneToast } from '@/components/MilestoneToast';
-import { PayoffBoosterCard } from '@/components/loans/PayoffBoosterCard';
 import { MoneyboxGrid } from '@/components/MoneyboxGrid';
 import { ProgressBar } from '@/components/ProgressBar';
 import { ProgressRing } from '@/components/ProgressRing';
@@ -25,8 +24,6 @@ import { markTodayActive } from '@/components/StreakSection';
 import { ThemeBackground } from '@/components/ThemeBackground';
 import { AD_UNIT_IDS, INTERSTITIAL_EVERY } from '@/lib/ads';
 import {
-  BannerAd,
-  BannerAdSize,
   InterstitialAd,
   AdEventType,
   RewardedAd,
@@ -79,7 +76,6 @@ export default function MoneyboxDetailScreen() {
   const [showCompletionFX, setShowCompletionFX] = useState(false);
   const [filling, setFilling] = useState(false);
   const [editAdLoading, setEditAdLoading] = useState(false);
-  const [rowCelebration, setRowCelebration] = useState<number | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const milestoneQueue = useRef<Milestone[]>([]);
   const fillCount = useRef(0);
@@ -123,14 +119,13 @@ export default function MoneyboxDetailScreen() {
 
   const moneybox = moneyboxes.find((b) => b.id === id);
   const cells = id ? cellsByMoneybox[id] ?? [] : [];
-  const streak = id ? streaks[id] : undefined;
 
   useEffect(() => {
     if (id && !cellsByMoneybox[id]) loadCells(id);
     if (id && !streaks[id]) loadStreak(id);
   }, [id, cellsByMoneybox, streaks, loadCells, loadStreak]);
 
-  const { saved, pct, unfilled, filledCount, daysSinceCreation, daysAhead } = useMemo(() => {
+  const { saved, pct, unfilled, filledCount, daysSinceCreation } = useMemo(() => {
     if (!moneybox) {
       return {
         saved: 0,
@@ -552,27 +547,6 @@ export default function MoneyboxDetailScreen() {
               </Text>
             </View>
 
-            {/* Days ahead/behind */}
-            {!isCompleted && filledCount > 0 && (
-              <View
-                style={{
-                  marginTop: 8,
-                  paddingHorizontal: 10,
-                  paddingVertical: 3,
-                  borderRadius: 12,
-                  backgroundColor:
-                    daysAhead > 0 ? 'rgba(34,197,94,0.2)' : daysAhead < 0 ? 'rgba(239,68,68,0.2)' : 'rgba(255,255,255,0.12)',
-                }}
-              >
-                <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 11, color: theme.textOnHero }}>
-                  {daysAhead > 0
-                    ? `${daysAhead}d ahead`
-                    : daysAhead < 0
-                      ? `${Math.abs(daysAhead)}d behind`
-                      : 'On track'}
-                </Text>
-              </View>
-            )}
             {filling && (
               <ActivityIndicator size="small" color={theme.textOnHero} style={{ marginTop: 8 }} />
             )}
@@ -601,9 +575,6 @@ export default function MoneyboxDetailScreen() {
                   You saved {formatAmount(moneybox.goalAmount, moneybox.currency)} - every cell filled.
                 </Text>
               </View>
-              {/* If this was a "Payoff Booster" vault, suggest applying it to the
-               *  linked loan (renders nothing otherwise). */}
-              <PayoffBoosterCard moneybox={moneybox} savedMajor={saved} />
               <View style={{ alignItems: 'center', marginBottom: 16 }}>
                 <ShareCard
                   moneybox={moneybox}
@@ -656,60 +627,6 @@ export default function MoneyboxDetailScreen() {
             </View>
           )}
 
-          {/* Streak + nudge card */}
-          {!isCompleted && (
-            <View
-              style={{
-                backgroundColor: theme.surface,
-                borderRadius: 16,
-                overflow: 'hidden',
-                marginBottom: 12,
-                shadowColor: theme.shadowColor,
-                shadowOffset: { width: 0, height: 6 },
-                shadowOpacity: 1,
-                shadowRadius: 20,
-                elevation: 2,
-              }}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  {streak && streak.currentDays > 0 ? (
-                    <Flame size={16} color="#F59E0B" />
-                  ) : (
-                    <Zap size={16} color={theme.textMuted} />
-                  )}
-                  <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: theme.textPrimary }}>
-                    {streak?.currentDays ?? 0} day streak
-                  </Text>
-                  {streak && streak.bestDays > streak.currentDays && (
-                    <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 12, color: theme.textMuted }}>
-                      · Best {streak.bestDays}
-                    </Text>
-                  )}
-                </View>
-              </View>
-              {suggestion && (
-                <>
-                  <View style={{ height: 0.5, backgroundColor: theme.borderLight, marginHorizontal: 16 }} />
-                  <View style={{ backgroundColor: theme.accentSoft, paddingHorizontal: 16, paddingVertical: 10 }}>
-                    {(() => {
-                      const { lead, trail } = suggestionLabel(suggestionDayOffset);
-                      return (
-                        <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 13, color: theme.accent }}>
-                          {lead}
-                          <Text style={{ fontFamily: 'DMSans_700Bold' }}>
-                            {formatAmount(suggestion.amount, moneybox.currency)}
-                          </Text>
-                          {trail}
-                        </Text>
-                      );
-                    })()}
-                  </View>
-                </>
-              )}
-            </View>
-          )}
-
           {/* Drag coin - only on active moneyboxes */}
           {!isReadOnly && suggestion && (
             <DragCoin
@@ -755,10 +672,8 @@ export default function MoneyboxDetailScreen() {
               hapticsEnabled={hapticsEnabled}
               onTap={handleTap}
               undoableCellId={isReadOnly ? null : undoableCellId}
-              onRowComplete={(rowIdx) => {
+              onRowComplete={() => {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                setRowCelebration(rowIdx);
-                setTimeout(() => setRowCelebration(null), 2000);
               }}
             />
           </View>
@@ -777,15 +692,6 @@ export default function MoneyboxDetailScreen() {
               >
                 DANGER ZONE
               </Text>
-              {/* AdMob banner */}
-              {adsReady && (
-                <View style={{ marginBottom: 16 }}>
-                  <BannerAd
-                    unitId={AD_UNIT_IDS.BANNER}
-                    size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
-                  />
-                </View>
-              )}
 
               <View
                 style={{
@@ -859,21 +765,6 @@ export default function MoneyboxDetailScreen() {
         </View>
       </ScrollView>
 
-      {/* Row celebration */}
-      {rowCelebration !== null && (
-        <View style={{
-          position: 'absolute', left: 24, right: 24, bottom: 40,
-          backgroundColor: theme.accentLight, borderRadius: 12, padding: 10,
-          flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-          shadowColor: 'rgba(0,0,0,0.12)', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 1, shadowRadius: 12, elevation: 4,
-        }}>
-          <Text style={{ fontSize: 16 }}>🎉</Text>
-          <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 13, color: theme.accent }}>
-            Row {rowCelebration + 1} complete!
-          </Text>
-        </View>
-      )}
-
       <MilestoneToast
         milestone={activeToast}
         hapticsEnabled={hapticsEnabled}
@@ -920,17 +811,6 @@ export default function MoneyboxDetailScreen() {
       />
     </View>
   );
-}
-
-/**
- * Copy for the "save next cell" hint, context-aware by how many days ahead of
- * today the next unfilled cell represents. Negative offsets (catch-up) and 0
- * both surface as "today" so users aren't shamed for being behind.
- */
-function suggestionLabel(dayOffset: number): { lead: string; trail: string } {
-  if (dayOffset <= 0) return { lead: 'Save ', trail: ' today' };
-  if (dayOffset === 1) return { lead: 'Save tomorrow’s ', trail: ' early' };
-  return { lead: 'Save ', trail: ` · ${dayOffset} days ahead` };
 }
 
 function dropConfirmTitle(dayOffset: number): string {

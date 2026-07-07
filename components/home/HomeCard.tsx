@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Text, View, ViewStyle } from 'react-native';
+import { Image, Text, View, ViewStyle, type ImageSourcePropType } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { SpringPressable } from '@/components/SpringPressable';
@@ -12,6 +12,9 @@ interface HomeCardProps {
   onPress?: () => void;
   /** Optional thin status stripe down the left edge (severity color). */
   accentEdge?: string;
+  /** Optional full-bleed background image behind the content (clipped to the
+   *  card). Keep card content left-aligned so it stays legible. */
+  backgroundSource?: ImageSourcePropType;
   /** Entrance stagger, ms. */
   delay?: number;
   padding?: number;
@@ -20,11 +23,11 @@ interface HomeCardProps {
 
 /**
  * Shared surface for every home card below the hero. One radius, one border,
- * one soft shadow, one entrance — so the cards read as a single family. Status
- * color is expressed only as a thin left edge (or by children), never a full
- * tinted background.
+ * one entrance — so the cards read as a single family. Status color is
+ * expressed by children, never a side edge. An optional background image can
+ * sit behind the content for feature cards.
  */
-export function HomeCard({ children, onPress, accentEdge, delay = 0, padding = 16, contentStyle }: HomeCardProps) {
+export function HomeCard({ children, onPress, accentEdge, backgroundSource, delay = 0, padding = 16, contentStyle }: HomeCardProps) {
   const C = useAppTheme();
 
   const inner = (
@@ -37,6 +40,13 @@ export function HomeCard({ children, onPress, accentEdge, delay = 0, padding = 1
         flexDirection: 'row',
       }}
     >
+      {backgroundSource ? (
+        <Image
+          source={backgroundSource}
+          resizeMode="cover"
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%' }}
+        />
+      ) : null}
       {accentEdge ? <View style={{ width: 3, backgroundColor: accentEdge }} /> : null}
       <View style={{ flex: 1, padding, gap: 12, ...contentStyle }}>{children}</View>
     </View>

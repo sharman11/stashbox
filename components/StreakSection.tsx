@@ -1,20 +1,55 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Flame, Shield, Trophy, Zap } from 'lucide-react-native';
 import { useEffect } from 'react';
-import { Text, View } from 'react-native';
+import { Image, Text, View } from 'react-native';
 import { create } from 'zustand';
 
+import { daysBetween, todayDateString } from '@/lib/streak-freeze';
 import { useAppTheme } from '@/lib/stores/theme';
+
+// Mascot-style day tokens for the weekly grid.
+const STREAK_TOKENS = {
+  saved: require('@/assets/stash/streak/saved.webp'),
+  today: require('@/assets/stash/streak/today.webp'),
+  notSaved: require('@/assets/stash/streak/not-saved.webp'),
+};
+
+const WELCOME_TARGET_DAYS = 7;
+// getUTCDay() index → label. Sunday is 0.
+const WEEKDAY_ABBR = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+
+type DayState = 'saved' | 'today' | 'missed' | 'future';
+interface DayCell {
+  label: string;
+  state: DayState;
+}
 
 interface StreakSectionProps {
   currentStreak: number;
   bestStreak: number;
   userId?: string | null;
-  /** Number of streak freezes the user can spend. Renders a shield chip when >0. */
-  freezesAvailable?: number;
+  /** YYYY-MM-DD the user created their first moneybox. While today is within 7
+   *  days of it, the card switches to the welcome-week grid: 7 days anchored to
+   *  the creation date (creation day = day 1) with an "X of 7" counter. */
+  welcomeStartDate?: string | null;
+  /** YYYY-MM-DD dates the user saved on — drives the welcome grid tokens. */
+  savedDates?: readonly string[];
 }
 
-const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const DAY_LABELS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+
+/* ── Date helpers (UTC, date-only) ──────────────────────────────── */
+function ymdToUTC(ymd: string): Date {
+  const [y, m, d] = ymd.slice(0, 10).split('-').map(Number);
+  return new Date(Date.UTC(y, (m || 1) - 1, d || 1));
+}
+function addDaysYmd(ymd: string, n: number): string {
+  const dt = ymdToUTC(ymd);
+  dt.setUTCDate(dt.getUTCDate() + n);
+  return dt.toISOString().slice(0, 10);
+}
+function weekdayAbbr(ymd: string): string {
+  return WEEKDAY_ABBR[ymdToUTC(ymd).getUTCDay()];
+}
 const EMPTY_WEEK: boolean[] = Array(7).fill(false);
 
 function storageKey(userId?: string | null): string {
@@ -97,16 +132,56 @@ export async function markTodayActive(userId?: string | null): Promise<void> {
   await useWeeklyActivityStore.getState().markToday(userId);
 }
 
-export function StreakSection({ currentStreak, bestStreak, userId, freezesAvailable = 0 }: StreakSectionProps) {
+export function StreakSection({
+  currentStreak,
+  bestStreak,
+  userId,
+  welcomeStartDate = null,
+  savedDates,
+}: StreakSectionProps) {
   const C = useAppTheme();
   const weeklyActivity = useWeeklyActivity(userId);
-  const activeDays = weeklyActivity.filter(Boolean).length;
   const todayIndex = (new Date().getDay() + 6) % 7;
   const isNewBest = currentStreak > 0 && currentStreak >= bestStreak;
-  // borderLight in dark mode (#1B2A24) sits one hue away from surface
-  // (#162A22) - empty day circles vanish. A translucent white wash gives the
-  // inactive cells real contrast without competing with the accent fill.
-  const inactiveBg = C.mode === 'dark' ? 'rgba(255,255,255,0.10)' : C.borderLight;
+  const today = todayDateString();
+
+  // Welcome-week mode — for the first 7 days from the moneybox creation date the
+  // grid is anchored to that date (creation day = day 1) and the corner shows
+  // "X of 7" days saved instead of the running streak count.
+  const welcomeElapsed = welcomeStartDate ? daysBetween(welcomeStartDate, today) : null;
+  const inWelcomeWeek =
+    welcomeElapsed !== null && welcomeElapsed >= 0 && welcomeElapsed < WELCOME_TARGET_DAYS;
+
+  // Build the 7 day-cells for whichever mode we're in.
+  let days: DayCell[];
+  let savedCount = 0;
+  if (inWelcomeWeek && welcomeStartDate) {
+    const saved = new Set(savedDates ?? []);
+    days = Array.from({ length: WELCOME_TARGET_DAYS }).map((_, i) => {
+      const date = addDaysYmd(welcomeStartDate, i);
+      const isSaved = saved.has(date);
+      if (isSaved) savedCount += 1;
+      const state: DayState = isSaved
+        ? 'saved'
+        : date === today
+          ? 'today'
+          : date > today
+            ? 'future'
+            : 'missed';
+      return { label: weekdayAbbr(date), state };
+    });
+  } else {
+    days = DAY_LABELS.map((label, i) => {
+      const state: DayState = weeklyActivity[i]
+        ? 'saved'
+        : i === todayIndex
+          ? 'today'
+          : i > todayIndex
+            ? 'future'
+            : 'missed';
+      return { label, state };
+    });
+  }
 
   return (
     <View
@@ -121,188 +196,89 @@ export function StreakSection({ currentStreak, bestStreak, userId, freezesAvaila
         elevation: 2,
       }}
     >
-      {/* Top row - streak number + best badge */}
+      {/* Top row — label · "X of 7" (welcome) or count + New PB badge */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <View style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <View
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              backgroundColor: currentStreak > 0 ? C.warnBg : inactiveBg,
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}
-          >
-            {currentStreak > 0 ? (
-              <Flame size={20} color={C.warnText} />
-            ) : (
-              <Zap size={20} color={C.textFaint} />
-            )}
-          </View>
-          <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 10, letterSpacing: 1.2, color: C.textSecondary }}>
+          {inWelcomeWeek ? 'WELCOME WEEK' : 'STREAK'}
+        </Text>
+
+        <View style={{ flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {inWelcomeWeek ? (
             <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
-              <Text style={{ fontFamily: 'DMSans_700Bold', fontSize: 24, lineHeight: 36, color: C.textPrimary }}>
-                {currentStreak}
+              <Text style={{ fontFamily: 'DMSans_700Bold', fontSize: 13, color: C.textPrimary }}>
+                {savedCount}
               </Text>
               <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 13, color: C.textMuted }}>
-                day{currentStreak !== 1 ? 's' : ''}
+                of {WELCOME_TARGET_DAYS}
               </Text>
             </View>
-            <Text
-              numberOfLines={2}
-              style={{ fontFamily: 'DMSans_400Regular', fontSize: 12, lineHeight: 16, color: C.textMuted, marginTop: 1 }}
-            >
-              {currentStreak === 0
-                ? 'Save today to start a streak'
-                : isNewBest
-                  ? 'Personal best!'
-                  : `Best: ${bestStreak} days`}
-            </Text>
-          </View>
-        </View>
-
-        <View style={{ flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          {/* Streak freeze chip - shown whenever the user has at least one. */}
-          {freezesAvailable > 0 && (
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 4,
-                backgroundColor: C.accentLight,
-                paddingHorizontal: 10,
-                paddingVertical: 5,
-                borderRadius: 12,
-              }}
-            >
-              <Shield size={12} color={C.accent} />
-              <Text
-                allowFontScaling={false}
-                style={{ fontFamily: 'DMSans_700Bold', fontSize: 11, color: C.accent }}
-              >
-                {freezesAvailable}
-              </Text>
-            </View>
-          )}
-
-          {/* Best badge */}
-          {isNewBest && currentStreak > 1 && (
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 4,
-                backgroundColor: C.warnBg,
-                paddingHorizontal: 10,
-                paddingVertical: 5,
-                borderRadius: 12,
-              }}
-            >
-              <Trophy size={12} color={C.warnText} />
-              <Text
-                allowFontScaling={false}
-                numberOfLines={1}
-                style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 11, color: C.warnText }}
-              >
-                NEW BEST
-              </Text>
-            </View>
+          ) : (
+            <>
+              {/* New PB — shown when the user beats their previous streak record. */}
+              {isNewBest && currentStreak > 1 && (
+                <View
+                  style={{
+                    backgroundColor: C.accentLight,
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                    borderRadius: 999,
+                  }}
+                >
+                  <Text
+                    allowFontScaling={false}
+                    numberOfLines={1}
+                    style={{ fontFamily: 'DMSans_700Bold', fontSize: 11, color: C.accent }}
+                  >
+                    New PB
+                  </Text>
+                </View>
+              )}
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
+                <Text style={{ fontFamily: 'DMSans_700Bold', fontSize: 13, color: C.textPrimary }}>
+                  {currentStreak}
+                </Text>
+                <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 13, color: C.textMuted }}>
+                  day{currentStreak !== 1 ? 's' : ''}
+                </Text>
+              </View>
+            </>
           )}
         </View>
       </View>
 
-      {/* Weekly activity grid */}
+      {/* Day-token grid — Mon–Sun normally, or the 7-day welcome window */}
       <View
         style={{
           flexDirection: 'row',
           justifyContent: 'space-between',
           marginTop: 18,
-          paddingHorizontal: 4,
         }}
       >
-        {DAY_LABELS.map((label, i) => {
-          const isActive = weeklyActivity[i];
-          const isToday = i === todayIndex;
+        {days.map((d, i) => {
+          const isToday = d.state === 'today';
+          const token =
+            d.state === 'saved'
+              ? STREAK_TOKENS.saved
+              : isToday
+                ? STREAK_TOKENS.today
+                : STREAK_TOKENS.notSaved;
           return (
-            <View key={i} style={{ alignItems: 'center', gap: 6, flex: 1 }}>
+            <View key={i} style={{ alignItems: 'center', gap: 6 }}>
               <Text
                 allowFontScaling={false}
                 style={{
-                  fontFamily: 'DMSans_500Medium',
+                  fontFamily: isToday ? 'DMSans_700Bold' : 'DMSans_500Medium',
                   fontSize: 11,
-                  color: isToday ? C.textPrimary : C.textFaint,
+                  // today = accent + bold; future days faded; past days muted.
+                  color: isToday ? C.accent : d.state === 'future' ? C.textFaint : C.textMuted,
                 }}
               >
-                {label}
+                {d.label}
               </Text>
-              <View
-                style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: 14,
-                  backgroundColor: isActive ? C.accent : inactiveBg,
-                  borderWidth: isToday && !isActive ? 2 : 0,
-                  borderColor: C.accent,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                {isActive && (
-                  <Text
-                    allowFontScaling={false}
-                    style={{
-                      fontSize: 12,
-                      color: C.mode === 'dark' ? C.buttonPrimaryText : '#FFFFFF',
-                      fontFamily: 'DMSans_700Bold',
-                    }}
-                  >
-                    ✓
-                  </Text>
-                )}
-              </View>
+              <Image source={token} style={{ width: 32, height: 32 }} resizeMode="contain" />
             </View>
           );
         })}
-      </View>
-
-      {/* Weekly progress bar */}
-      <View style={{ marginTop: 14 }}>
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: 6,
-            gap: 8,
-          }}
-        >
-          <Text
-            allowFontScaling={false}
-            numberOfLines={1}
-            style={{ flex: 1, minWidth: 0, fontFamily: 'DMSans_500Medium', fontSize: 12, color: C.textMuted }}
-          >
-            This week
-          </Text>
-          <Text
-            allowFontScaling={false}
-            numberOfLines={1}
-            style={{ flexShrink: 0, fontFamily: 'DMSans_600SemiBold', fontSize: 12, color: C.textPrimary }}
-          >
-            {activeDays}/7
-          </Text>
-        </View>
-        <View style={{ backgroundColor: inactiveBg, height: 4, borderRadius: 2 }}>
-          <View
-            style={{
-              backgroundColor: activeDays === 7 ? '#22C55E' : C.accent,
-              height: 4,
-              borderRadius: 2,
-              width: `${(activeDays / 7) * 100}%`,
-            }}
-          />
-        </View>
       </View>
     </View>
   );

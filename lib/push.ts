@@ -24,10 +24,6 @@ export function setupNotificationListener(): void {
 
   Notifications.addNotificationResponseReceivedListener((response) => {
     const data = response.notification.request.content.data;
-    if (data?.loanId) {
-      router.push(`/loans/${data.loanId}`);
-      return;
-    }
     if (data?.moneyboxId) {
       router.push(`/box/${data.moneyboxId}`);
     }

@@ -1,7 +1,7 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Lock, Sparkles } from 'lucide-react-native';
 import { useMemo } from 'react';
-import { Text, View } from 'react-native';
+import { ImageBackground, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { SpringPressable } from '@/components/SpringPressable';
@@ -11,6 +11,11 @@ import { track } from '@/lib/observability';
 import { useEntitlement } from '@/lib/stores/entitlement';
 import { useMoneyboxesStore } from '@/lib/stores/moneyboxes';
 import { useAppTheme } from '@/lib/stores/theme';
+
+const FORECAST_BG = {
+  onTrack: require('@/assets/stash/forecast/on-track.webp'),
+  behind: require('@/assets/stash/forecast/behind.webp'),
+};
 
 /**
  * Goal forecasting (Stashbox+): projected finish date + on-track/behind for each
@@ -32,10 +37,10 @@ export function GoalForecastCard() {
       .filter((f) => f.hasData && !f.done);
   }, [moneyboxes, cellsByMoneybox]);
 
-  if (forecasts.length === 0) return null;
-
   const card = {
-    backgroundColor: C.surface,
+    // Matches the cream of the locked-card illustrations so all three forecast
+    // states share one surface.
+    backgroundColor: '#FEF0D5',
     borderRadius: 18,
     borderWidth: 1,
     borderColor: C.borderLight,
@@ -44,42 +49,49 @@ export function GoalForecastCard() {
   } as const;
 
   const eyebrow = (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-      <Sparkles size={13} color={C.accent} />
-      <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 10, letterSpacing: 1.2, color: C.textSecondary }}>
-        GOAL FORECAST
-      </Text>
-    </View>
+    <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 10, letterSpacing: 1.2, color: C.textSecondary }}>
+      GOAL FORECAST
+    </Text>
   );
 
+  const goPaywall = () => {
+    track('upsell_tapped', { source: 'stash_forecast' });
+    router.push('/paywall' as never);
+  };
+
+  // Locked teaser — the background illustration carries the on-track / behind
+  // story, so the card keeps just the title on the calm left side (no icon, no
+  // subtext).
+  const renderLocked = (onTrack: boolean) => (
+    <SpringPressable
+      onPress={goPaywall}
+      haptic
+      style={{ borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: C.borderLight }}
+    >
+      <ImageBackground
+        source={onTrack ? FORECAST_BG.onTrack : FORECAST_BG.behind}
+        resizeMode="cover"
+        style={{ minHeight: 92, padding: 18, justifyContent: 'center' }}
+      >
+        {eyebrow}
+        <Text
+          numberOfLines={1}
+          style={{ fontFamily: 'DMSans_700Bold', fontSize: 16, color: C.textPrimary, marginTop: 6, maxWidth: '60%' }}
+        >
+          Unlock goal forecasts
+        </Text>
+      </ImageBackground>
+    </SpringPressable>
+  );
+
+  // Preview-only: force the locked teaser in the requested state.
+  if (forecasts.length === 0) return null;
+
   if (!isPro) {
-    const behind = forecasts.find((f) => !f.onTrack);
-    const preview = behind
-      ? `${behind.name} is behind its target`
-      : `${forecasts[0].name} is on track for ${shortDate(forecasts[0].projectedDate ?? forecasts[0].targetDate)}`;
+    const anyBehind = forecasts.some((f) => !f.onTrack);
     return (
       <Animated.View entering={FadeInDown.duration(400)}>
-        <SpringPressable
-          onPress={() => {
-            track('upsell_tapped', { source: 'stash_forecast' });
-            router.push('/paywall' as never);
-          }}
-          haptic
-          style={card}
-        >
-          {eyebrow}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: C.accent + '1A', alignItems: 'center', justifyContent: 'center' }}>
-              <Lock size={20} color={C.accent} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: 'DMSans_700Bold', fontSize: 15, color: C.textPrimary }}>Unlock goal forecasts</Text>
-              <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 12, color: C.textSecondary, marginTop: 2, lineHeight: 17 }}>
-                {preview} — see finish dates and stay on target with Stashbox+.
-              </Text>
-            </View>
-          </View>
-        </SpringPressable>
+        {renderLocked(!anyBehind)}
       </Animated.View>
     );
   }
@@ -87,15 +99,25 @@ export function GoalForecastCard() {
   return (
     <Animated.View entering={FadeInDown.duration(400)} style={card}>
       {eyebrow}
-      {forecasts.map((f) => (
-        <ForecastRow key={f.boxId} f={f} C={C} />
-      ))}
+      <View>
+        {forecasts.map((f, i) => (
+          <View key={f.boxId}>
+            {i > 0 && <LinearGradient
+              colors={['transparent', 'rgba(0,0,0,0.09)', 'rgba(0,0,0,0.09)', 'transparent']}
+              locations={[0, 0.15, 0.85, 1]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={{ height: 1, marginVertical: 14 }}
+            />}
+            <ForecastRow f={f} C={C} />
+          </View>
+        ))}
+      </View>
     </Animated.View>
   );
 }
 
 function ForecastRow({ f, C }: { f: GoalForecast; C: ReturnType<typeof useAppTheme> }) {
-  const chipColor = f.onTrack ? '#16A34A' : '#F59E0B';
   const sub = f.onTrack
     ? `On track to finish ${f.projectedDate ? shortDate(f.projectedDate) : shortDate(f.targetDate)}`
     : `Save ${formatAmount(Math.ceil(f.weeklyNeeded), f.currency)}/wk to hit ${shortDate(f.targetDate)}`;
@@ -104,20 +126,46 @@ function ForecastRow({ f, C }: { f: GoalForecast; C: ReturnType<typeof useAppThe
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
       <Text style={{ fontSize: 20 }}>{f.emoji}</Text>
       <View style={{ flex: 1 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text numberOfLines={1} style={{ flex: 1, fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: C.textPrimary }}>
-            {f.name}
-          </Text>
-          <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, backgroundColor: chipColor + '18' }}>
-            <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 10, color: chipColor }}>
-              {f.onTrack ? 'On track' : 'Behind'}
-            </Text>
-          </View>
-        </View>
-        <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 12, color: C.textSecondary, marginTop: 1 }}>
+        <Text numberOfLines={1} style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: C.textPrimary }}>
+          {f.name}
+        </Text>
+        <Text numberOfLines={1} style={{ fontFamily: 'DMSans_500Medium', fontSize: 12, color: C.textSecondary, marginTop: 1 }}>
           {sub}
         </Text>
       </View>
+      {/* Tag — vertically centered with the text block, premium metallic look. */}
+      <StatusTag onTrack={f.onTrack} />
     </View>
+  );
+}
+
+/** Glossy status tag — a gradient-filled pill (light-to-dark for an embossed
+ *  sheen) with crisp white text. */
+function StatusTag({ onTrack }: { onTrack: boolean }) {
+  const grad = onTrack
+    ? (['#4ADE80', '#16A34A'] as const)
+    : (['#FB923C', '#EA580C'] as const);
+  return (
+    <LinearGradient
+      colors={grad}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={{ borderRadius: 999, paddingHorizontal: 11, paddingVertical: 4 }}
+    >
+      <Text
+        allowFontScaling={false}
+        style={{
+          fontFamily: 'DMSans_700Bold',
+          fontSize: 10,
+          letterSpacing: 0.3,
+          color: '#FFFFFF',
+          textShadowColor: 'rgba(0,0,0,0.22)',
+          textShadowOffset: { width: 0, height: 1 },
+          textShadowRadius: 1,
+        }}
+      >
+        {onTrack ? 'On track' : 'Behind'}
+      </Text>
+    </LinearGradient>
   );
 }

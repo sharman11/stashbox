@@ -65,10 +65,6 @@ export interface Moneybox {
   gridRows: number;
   gridCols: number;
   status: MoneyboxStatus;
-  /** When set, this vault is a "Payoff Booster" for the given student loan.
-   *  On completion the app suggests logging its total as an extra principal
-   *  payment (it never moves money itself). Null for ordinary goals. */
-  linkedLoanId: string | null;
   createdAt: string;
   completedAt: string | null;
   /** Milestone percentages (25/50/75/100) that have already fired for this vault.
@@ -110,69 +106,6 @@ export interface Streak {
   currentDays: number;
   bestDays: number;
   lastFilledDate: string | null;
-}
-
-/* ── Student loan tracker ──────────────────────────────────────────
- *  Money stored in cents (bigint) to avoid float drift across the
- *  many small multiplications in amortization math. APR stored as
- *  basis points (650 = 6.50%). The display layer is responsible for
- *  dividing back out — never do arithmetic on the display values.
- */
-
-export type LoanType =
-  | 'federal_subsidized'
-  | 'federal_unsubsidized'
-  | 'federal_plus'
-  | 'perkins'
-  | 'private'
-  | 'refinanced';
-
-export type LoanStatus = 'active' | 'paid_off' | 'in_deferment';
-
-export type RepaymentPlan =
-  | 'standard'
-  | 'graduated'
-  | 'extended'
-  | 'idr'
-  | 'pslf'
-  | 'other';
-
-export type AprType = 'fixed' | 'variable';
-
-export interface StudentLoan {
-  id: string;
-  userId: string;
-  nickname: string;
-  loanType: LoanType;
-  servicer: string | null;
-  originalPrincipalCents: number;
-  currentBalanceCents: number;
-  aprBps: number;
-  aprType: AprType;
-  termMonthsRemaining: number;
-  monthlyPaymentCents: number;
-  dueDayOfMonth: number;
-  autopayOn: boolean;
-  repaymentPlan: RepaymentPlan;
-  reminderEnabled: boolean;
-  status: LoanStatus;
-  createdAt: string;
-  updatedAt: string;
-  paidOffAt: string | null;
-}
-
-export interface LoanPayment {
-  id: string;
-  loanId: string;
-  /** YYYY-MM-DD */
-  paymentDate: string;
-  amountCents: number;
-  principalCents: number;
-  interestCents: number;
-  isExtra: boolean;
-  sourceMoneyboxId: string | null;
-  note: string | null;
-  createdAt: string;
 }
 
 /* ──────────────────────────────────────────────────────────────────────

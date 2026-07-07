@@ -19,8 +19,6 @@ interface CreateMoneyboxInput {
   targetDays: number;
   gridCols: number;
   notes: readonly number[];
-  /** Optional: link this vault to a student loan ("Payoff Booster"). */
-  linkedLoanId?: string | null;
 }
 
 interface FillResult {
@@ -114,7 +112,6 @@ export const useMoneyboxesStore = create<MoneyboxesState>((set, get) => ({
       gridRows: row.grid_rows,
       gridCols: row.grid_cols,
       status: row.status,
-      linkedLoanId: (row.linked_loan_id as string | null) ?? null,
       createdAt: row.created_at,
       completedAt: row.completed_at,
       milestonesTriggered: Array.isArray(row.milestones_triggered)
@@ -232,9 +229,6 @@ export const useMoneyboxesStore = create<MoneyboxesState>((set, get) => ({
           target_days: input.targetDays,
           grid_rows: generated.rows,
           grid_cols: generated.cols,
-          // Only reference the column when actually linking, so ordinary vault
-          // creation keeps working even before the migration has been run.
-          ...(input.linkedLoanId ? { linked_loan_id: input.linkedLoanId } : {}),
         })
         .select()
         .single();
@@ -270,7 +264,6 @@ export const useMoneyboxesStore = create<MoneyboxesState>((set, get) => ({
         gridRows: mbRow.grid_rows ?? generated.rows,
         gridCols: mbRow.grid_cols ?? generated.cols,
         status: mbRow.status,
-        linkedLoanId: (mbRow.linked_loan_id as string | null) ?? input.linkedLoanId ?? null,
         createdAt: mbRow.created_at,
         completedAt: mbRow.completed_at,
         milestonesTriggered: Array.isArray(mbRow.milestones_triggered)

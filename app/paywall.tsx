@@ -13,9 +13,9 @@ import { useEntitlement } from '@/lib/stores/entitlement';
 import { useAppTheme } from '@/lib/stores/theme';
 
 const BENEFITS = [
-  'Debt-free optimizer — see how extra payments cut months and interest',
   'Smart spending insights from your own data',
   'Advanced goal forecasting',
+  'Unlimited savings goals',
   'Support an indie app 🐿️',
 ];
 

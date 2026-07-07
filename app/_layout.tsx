@@ -171,7 +171,7 @@ function useAuthGuard(
       if (!inAuth) router.replace('/(auth)/welcome');
     } else if (!onboardingDone) {
       // Real user, not yet onboarded → the signup stepper handles
-      // the post-auth onboarding (name / avatar / currency / goal / loans /
+      // the post-auth onboarding (name / avatar / currency / goal /
       // personality). Account creation happened in /(auth)/email-otp.
       if (!onSignup) router.replace('/(auth)/signup');
     } else if (inAuth) {
@@ -317,9 +317,6 @@ export default function RootLayout() {
           <Stack.Screen name="paywall" options={{ presentation: 'modal' }} />
           <Stack.Screen name="create" options={{ presentation: 'modal' }} />
           <Stack.Screen name="box/[id]" />
-          <Stack.Screen name="loans/create" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="loans/[id]" />
-          <Stack.Screen name="loans/log-payment" options={{ presentation: 'modal' }} />
           <Stack.Screen name="expenses/edit" options={{ presentation: 'modal' }} />
           <Stack.Screen name="expenses/categories" />
           <Stack.Screen name="expenses/budgets" />
