@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Check, ChevronLeft, Plus, Trash2 } from 'lucide-react-native';
+import { Check, ChevronLeft, Pencil, Plus, Trash2 } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { SpringPressable } from '@/components/SpringPressable';
 import { CURRENCIES, formatAmount, type CurrencyCode } from '@/lib/currency';
 import { getCachedRates, getFxRates } from '@/lib/expenses/fx';
 import {
@@ -97,6 +98,13 @@ export default function BudgetsScreen() {
     [overallBudget, transactions, rates],
   );
 
+  // Sum of all category caps — used to flag when they exceed the overall cap
+  // (an easy-to-miss inconsistency the user should know about).
+  const categoryAllocCents = useMemo(
+    () => Array.from(categoryBudgetById.values()).reduce((s, b) => s + (b?.limitCents ?? 0), 0),
+    [categoryBudgetById],
+  );
+
   const onSetBudget = async (categoryId: string | null, amount: number) => {
     if (!userId) return;
     if (amount <= 0) {
@@ -175,8 +183,8 @@ export default function BudgetsScreen() {
               paddingHorizontal: 4,
             }}
           >
-            Set spending caps for {formatMonth(period)}. We&apos;ll warn you at 80% and
-            change the color when you&apos;re over.
+            Spending caps for {formatMonth(period)}. Tap a row to set or change its cap.
+            We&apos;ll nudge you at 80% and flag anything over.
           </Text>
 
           {/* Overall */}
@@ -192,6 +200,23 @@ export default function BudgetsScreen() {
             onSave={(amt) => onSetBudget(null, amt)}
             onRemove={overallBudget ? () => onRemove(null) : undefined}
           />
+          {/* Allocation sanity check — category caps vs the overall cap. */}
+          {overallBudget && categoryAllocCents > overallBudget.limitCents && (
+            <Text
+              style={{
+                fontFamily: 'DMSans_500Medium',
+                fontSize: 11,
+                color: '#B45309',
+                marginTop: 6,
+                paddingHorizontal: 4,
+                lineHeight: 15,
+              }}
+            >
+              Your category caps add up to{' '}
+              {formatAmount(categoryAllocCents / 100, overallBudget.currency)}, which is more
+              than the overall cap.
+            </Text>
+          )}
 
           {/* Per-category */}
           <SectionLabel>By category</SectionLabel>
@@ -210,8 +235,9 @@ export default function BudgetsScreen() {
             ))}
 
             {/* Add a custom category (opens the categories manager) */}
-            <Pressable
+            <SpringPressable
               onPress={() => router.push('/expenses/categories')}
+              haptic
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
@@ -229,7 +255,7 @@ export default function BudgetsScreen() {
               <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: C.accent }}>
                 Add custom category
               </Text>
-            </Pressable>
+            </SpringPressable>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -272,11 +298,18 @@ interface BudgetRowProps {
   onRemove?: () => void;
 }
 
+/**
+ * One budget row, in two states (progressive disclosure):
+ *  - Collapsed: a display row — icon, name, spent/limit + remaining, progress
+ *    bar. Unset rows show a "Set" chip instead. Tap anywhere to edit.
+ *  - Editing: reveals the amount input + Save (and delete for set budgets).
+ * Keeping inputs hidden until asked kills the wall-of-forms feel.
+ */
 function BudgetRow(props: BudgetRowProps) {
   const C = useAppTheme();
-  const [text, setText] = useState<string>(
-    props.currentLimit > 0 ? props.currentLimit.toString() : '',
-  );
+  const isSet = props.currentLimit > 0;
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState<string>(isSet ? props.currentLimit.toString() : '');
 
   const [justSaved, setJustSaved] = useState(false);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -287,6 +320,11 @@ function BudgetRow(props: BudgetRowProps) {
     [],
   );
 
+  // Keep the draft in sync when the stored limit changes (e.g. delete).
+  useEffect(() => {
+    setText(props.currentLimit > 0 ? props.currentLimit.toString() : '');
+  }, [props.currentLimit]);
+
   // Silent save (used by onBlur) — returns whether a valid value was committed.
   const commit = (): boolean => {
     const v = Number(text.replace(/[^0-9.]/g, ''));
@@ -295,12 +333,15 @@ function BudgetRow(props: BudgetRowProps) {
     return true;
   };
 
-  // Explicit Save-button press: commit, then flash a "Saved" confirmation.
+  // Explicit Save press: commit, flash "Saved", then collapse back.
   const handleSavePress = () => {
     if (!commit()) return;
     setJustSaved(true);
     if (savedTimer.current) clearTimeout(savedTimer.current);
-    savedTimer.current = setTimeout(() => setJustSaved(false), 1600);
+    savedTimer.current = setTimeout(() => {
+      setJustSaved(false);
+      setEditing(false);
+    }, 900);
   };
 
   const status =
@@ -313,9 +354,15 @@ function BudgetRow(props: BudgetRowProps) {
           : 'ok';
   const statusColor =
     status === 'exceeded' ? '#DC2626' : status === 'warn' ? '#F59E0B' : props.color;
+  const remaining = props.currentLimit - props.spent;
+  const subColor =
+    status === 'exceeded' ? '#DC2626' : status === 'warn' ? '#B45309' : C.textMuted;
 
   return (
-    <View
+    <Pressable
+      onPress={() => {
+        if (!editing) setEditing(true);
+      }}
       style={{
         backgroundColor: C.surface,
         borderRadius: 14,
@@ -345,123 +392,126 @@ function BudgetRow(props: BudgetRowProps) {
           >
             {props.label}
           </Text>
-          {props.currentLimit > 0 && (
-            <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 11, color: C.textMuted }}>
+          {/* Status line: amounts + what's left (or over) — the takeaway. */}
+          {isSet && !editing && (
+            <Text
+              style={{ fontFamily: 'DMSans_500Medium', fontSize: 11, color: subColor, marginTop: 1 }}
+            >
               {formatAmount(props.spent, props.currency)} of{' '}
               {formatAmount(props.currentLimit, props.currency)}
+              {remaining >= 0
+                ? ` · ${formatAmount(remaining, props.currency)} left`
+                : ` · ${formatAmount(Math.abs(remaining), props.currency)} over`}
             </Text>
           )}
         </View>
-        {props.onRemove && (
-          <Pressable onPress={props.onRemove} hitSlop={6}>
-            <Trash2 size={16} color="#94A3B8" />
-          </Pressable>
+
+        {/* Right affordance by state: Set chip → pencil → trash. */}
+        {editing ? (
+          props.onRemove ? (
+            <Pressable onPress={props.onRemove} hitSlop={8}>
+              <Trash2 size={16} color="#94A3B8" />
+            </Pressable>
+          ) : null
+        ) : isSet ? (
+          <Pencil size={14} color={C.textFaint} />
+        ) : (
+          <View
+            style={{
+              paddingHorizontal: 12,
+              paddingVertical: 5,
+              borderRadius: 999,
+              backgroundColor: C.accentLight,
+            }}
+          >
+            <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 12, color: C.accentDark }}>
+              Set
+            </Text>
+          </View>
         )}
       </View>
 
-      {/* Limit input */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <View
-          style={{
-            flex: 1,
-            flexDirection: 'row',
-            alignItems: 'center',
-            backgroundColor: C.pageBg,
-            borderRadius: 10,
-            borderWidth: 1,
-            borderColor: C.border,
-            paddingHorizontal: 12,
-            paddingVertical: 8,
-            gap: 6,
-          }}
-        >
-          <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: C.textMuted }}>
-            {CURRENCIES[props.currency].symbol}
-          </Text>
-          <TextInput
-            value={text}
-            onChangeText={(v) => setText(v.replace(/[^0-9.]/g, ''))}
-            onBlur={commit}
-            placeholder="0"
-            placeholderTextColor={C.textMuted}
-            keyboardType="decimal-pad"
-            style={{
-              flex: 1,
-              fontFamily: 'DMSans_600SemiBold',
-              fontSize: 15,
-              color: C.textPrimary,
-              padding: 0,
-            }}
-          />
-        </View>
-        <Pressable
-          onPress={handleSavePress}
-          disabled={justSaved}
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 4,
-            minWidth: 78,
-            backgroundColor: justSaved ? '#16A34A' : C.accent,
-            paddingHorizontal: 14,
-            paddingVertical: 10,
-            borderRadius: 10,
-          }}
-        >
-          {justSaved && <Check size={14} color="#FFFFFF" strokeWidth={2.5} />}
-          <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 13, color: '#FFFFFF' }}>
-            {justSaved ? 'Saved' : 'Save'}
-          </Text>
-        </Pressable>
-      </View>
-
-      {/* Progress bar */}
-      {props.currentLimit > 0 && (
-        <View>
+      {/* Limit input — only while editing. */}
+      {editing && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <View
             style={{
-              height: 6,
-              borderRadius: 3,
-              backgroundColor: C.borderLight,
-              overflow: 'hidden',
+              flex: 1,
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: C.pageBg,
+              borderRadius: 10,
+              borderWidth: 1,
+              borderColor: C.border,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              gap: 6,
             }}
           >
-            <View
+            <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: C.textMuted }}>
+              {CURRENCIES[props.currency].symbol}
+            </Text>
+            <TextInput
+              value={text}
+              onChangeText={(v) => setText(v.replace(/[^0-9.]/g, ''))}
+              onBlur={commit}
+              placeholder="0"
+              placeholderTextColor={C.textMuted}
+              keyboardType="decimal-pad"
+              autoFocus
               style={{
-                width: `${Math.min(1, props.ratio) * 100}%`,
-                height: '100%',
-                backgroundColor: statusColor,
+                flex: 1,
+                fontFamily: 'DMSans_600SemiBold',
+                fontSize: 15,
+                color: C.textPrimary,
+                padding: 0,
               }}
             />
           </View>
-          {status === 'warn' && (
-            <Text
-              style={{
-                marginTop: 4,
-                fontFamily: 'DMSans_500Medium',
-                fontSize: 11,
-                color: '#B45309',
-              }}
-            >
-              {Math.round(props.ratio * 100)}% — getting close
+          <SpringPressable
+            onPress={handleSavePress}
+            disabled={justSaved}
+            haptic
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 4,
+              minWidth: 78,
+              backgroundColor: justSaved ? '#16A34A' : C.accent,
+              paddingHorizontal: 14,
+              paddingVertical: 10,
+              borderRadius: 10,
+            }}
+          >
+            {justSaved && <Check size={14} color="#FFFFFF" strokeWidth={2.5} />}
+            <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 13, color: '#FFFFFF' }}>
+              {justSaved ? 'Saved' : 'Save'}
             </Text>
-          )}
-          {status === 'exceeded' && (
-            <Text
-              style={{
-                marginTop: 4,
-                fontFamily: 'DMSans_500Medium',
-                fontSize: 11,
-                color: '#991B1B',
-              }}
-            >
-              {Math.round(props.ratio * 100)}% — over budget
-            </Text>
-          )}
+          </SpringPressable>
         </View>
       )}
-    </View>
+
+      {/* Progress bar — always visible on set budgets for context. */}
+      {isSet && (
+        <View
+          style={{
+            height: 6,
+            borderRadius: 3,
+            backgroundColor: C.borderLight,
+            overflow: 'hidden',
+          }}
+        >
+          <View
+            style={{
+              width: `${Math.min(1, props.ratio) * 100}%`,
+              height: '100%',
+              backgroundColor: statusColor,
+            }}
+          />
+        </View>
+      )}
+    </Pressable>
   );
 }
 

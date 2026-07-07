@@ -1,5 +1,7 @@
-import { Text, View } from 'react-native';
-import Svg, { Rect } from 'react-native-svg';
+import { Pressable, Text, View } from 'react-native';
+import Svg, { Line, Rect } from 'react-native-svg';
+
+import { useAppTheme } from '@/lib/stores/theme';
 
 export interface BarDatum {
   key: string;
@@ -18,6 +20,13 @@ interface BarChartProps {
   color?: string;
   /** Optional formatter for the label rendered above the bar. */
   formatValue?: (v: number) => string;
+  /** When set, each bar column becomes tappable (full-height hit area). */
+  onBarPress?: (key: string) => void;
+  /** When set, only this bar shows its value label and its axis label is
+   *  emphasized — one focused number instead of six competing ones. */
+  selectedKey?: string;
+  /** Draw a dashed reference line at the mean of the non-zero bars. */
+  showAverage?: boolean;
 }
 
 /**
@@ -30,10 +39,22 @@ export function BarChart({
   height = 160,
   color = '#10B981',
   formatValue,
+  onBarPress,
+  selectedKey,
+  showAverage,
 }: BarChartProps) {
+  const C = useAppTheme();
   if (data.length === 0) return null;
 
-  const max = Math.max(1, ...data.map((d) => d.value));
+  // Average of months that have data — zero months (pre-signup, no logs)
+  // would drag the reference line down to meaninglessness.
+  const nonZero = data.filter((d) => d.value > 0);
+  const avg =
+    showAverage && nonZero.length >= 2
+      ? nonZero.reduce((s, d) => s + d.value, 0) / nonZero.length
+      : null;
+
+  const max = Math.max(1, ...data.map((d) => d.value), avg ?? 0);
   const paddingX = 8;
   const paddingTop = 20;
   const paddingBottom = 28;
@@ -41,6 +62,7 @@ export function BarChart({
   const chartH = height - paddingTop - paddingBottom;
   const slotW = chartW / data.length;
   const barW = Math.min(28, slotW * 0.55);
+  const avgY = avg !== null ? paddingTop + (1 - avg / max) * chartH : 0;
 
   return (
     <View style={{ width, height }}>
@@ -62,7 +84,35 @@ export function BarChart({
             />
           );
         })}
+        {avg !== null && (
+          <Line
+            x1={paddingX}
+            y1={avgY}
+            x2={width - paddingX}
+            y2={avgY}
+            stroke={C.textMuted}
+            strokeWidth={1}
+            strokeDasharray="4 4"
+            opacity={0.55}
+          />
+        )}
       </Svg>
+      {/* Average label — hugs the right end of the dashed line. */}
+      {avg !== null && (
+        <Text
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            right: paddingX,
+            top: Math.max(0, avgY - 15),
+            fontFamily: 'DMSans_500Medium',
+            fontSize: 9,
+            color: C.textMuted,
+          }}
+        >
+          avg {formatValue ? formatValue(avg) : Math.round(avg).toString()}
+        </Text>
+      )}
       {/* Value labels above bars */}
       <View
         pointerEvents="none"
@@ -75,15 +125,18 @@ export function BarChart({
           flexDirection: 'row',
         }}
       >
-        {data.map((d, i) => {
-          if (d.value === 0) return <View key={d.key} style={{ flex: 1 }} />;
+        {data.map((d) => {
+          // With a selection, only the focused bar carries its number —
+          // six competing labels read as noise, one reads as an answer.
+          const hidden = d.value === 0 || (selectedKey ? d.key !== selectedKey : false);
+          if (hidden) return <View key={d.key} style={{ flex: 1 }} />;
           return (
             <View key={d.key} style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end' }}>
               <Text
                 style={{
-                  fontFamily: 'DMSans_500Medium',
+                  fontFamily: 'DMSans_600SemiBold',
                   fontSize: 10,
-                  color: '#374151',
+                  color: C.textSecondary,
                 }}
               >
                 {formatValue ? formatValue(d.value) : Math.round(d.value).toString()}
@@ -104,20 +157,45 @@ export function BarChart({
           alignItems: 'center',
         }}
       >
-        {data.map((d) => (
-          <View key={d.key} style={{ flex: 1, alignItems: 'center' }}>
-            <Text
-              style={{
-                fontFamily: 'DMSans_500Medium',
-                fontSize: 11,
-                color: '#6B7280',
-              }}
-            >
-              {d.label}
-            </Text>
-          </View>
-        ))}
+        {data.map((d) => {
+          const selected = selectedKey === d.key;
+          return (
+            <View key={d.key} style={{ flex: 1, alignItems: 'center' }}>
+              <Text
+                style={{
+                  fontFamily: selected ? 'DMSans_700Bold' : 'DMSans_500Medium',
+                  fontSize: 11,
+                  color: selected ? C.textPrimary : C.textMuted,
+                }}
+              >
+                {d.label}
+              </Text>
+            </View>
+          );
+        })}
       </View>
+      {/* Tap targets — one full-height column per bar, over everything. */}
+      {onBarPress && (
+        <View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            flexDirection: 'row',
+          }}
+        >
+          {data.map((d) => (
+            <Pressable
+              key={d.key}
+              onPress={() => onBarPress(d.key)}
+              accessibilityLabel={`Select ${d.label}`}
+              style={{ flex: 1 }}
+            />
+          ))}
+        </View>
+      )}
     </View>
   );
 }

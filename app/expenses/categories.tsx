@@ -1,6 +1,14 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ChevronLeft, Plus, Trash2 } from 'lucide-react-native';
+import {
+  Check,
+  ChevronLeft,
+  Pencil,
+  Plus,
+  Trash2,
+  TrendingDown,
+  TrendingUp,
+} from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import {
   Alert,
@@ -14,6 +22,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { SpringPressable } from '@/components/SpringPressable';
 import { useExpenseCategoriesStore } from '@/lib/stores/expense-categories';
 import { useExpenseTransactionsStore } from '@/lib/stores/expense-transactions';
 import { useSessionStore } from '@/lib/stores/session';
@@ -129,9 +138,9 @@ export default function CategoriesScreen() {
           <Text style={{ fontFamily: 'DMSans_700Bold', fontSize: 16, color: C.textPrimary }}>
             Categories
           </Text>
-          <Pressable onPress={() => setAddOpen((v) => !v)} hitSlop={10}>
+          <SpringPressable onPress={() => setAddOpen((v) => !v)} haptic>
             <Plus size={24} color={C.accent} strokeWidth={2.5} />
-          </Pressable>
+          </SpringPressable>
         </View>
 
         <ScrollView
@@ -154,7 +163,7 @@ export default function CategoriesScreen() {
                 gap: 12,
               }}
             >
-              {/* Type toggle */}
+              {/* Type toggle — same treatment as the transaction screen. */}
               <View
                 style={{
                   flexDirection: 'row',
@@ -163,124 +172,99 @@ export default function CategoriesScreen() {
                   padding: 3,
                 }}
               >
-                {(['expense', 'income'] as TransactionType[]).map((t) => (
-                  <Pressable
-                    key={t}
-                    onPress={() => setAddType(t)}
-                    style={{
-                      flex: 1,
-                      paddingVertical: 8,
-                      borderRadius: 8,
-                      alignItems: 'center',
-                      backgroundColor: addType === t ? C.surface : 'transparent',
-                    }}
-                  >
-                    <Text
+                {(
+                  [
+                    { key: 'expense' as const, label: 'Expense', icon: TrendingDown, color: '#EF4444' },
+                    { key: 'income' as const, label: 'Income', icon: TrendingUp, color: '#10B981' },
+                  ]
+                ).map((t) => {
+                  const active = addType === t.key;
+                  const Icon = t.icon;
+                  return (
+                    <Pressable
+                      key={t.key}
+                      onPress={() => setAddType(t.key)}
                       style={{
-                        fontFamily: 'DMSans_600SemiBold',
-                        fontSize: 13,
-                        color: addType === t ? C.textPrimary : C.textMuted,
+                        flex: 1,
+                        paddingVertical: 8,
+                        borderRadius: 8,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexDirection: 'row',
+                        gap: 6,
+                        backgroundColor: active ? C.surface : 'transparent',
+                        shadowColor: active ? '#000' : 'transparent',
+                        shadowOpacity: 0.08,
+                        shadowRadius: 5,
+                        shadowOffset: { width: 0, height: 2 },
+                        elevation: active ? 2 : 0,
                       }}
                     >
-                      {t === 'expense' ? 'Expense' : 'Income'}
-                    </Text>
-                  </Pressable>
-                ))}
+                      <Icon size={14} color={active ? t.color : C.textMuted} strokeWidth={2.5} />
+                      <Text
+                        style={{
+                          fontFamily: 'DMSans_600SemiBold',
+                          fontSize: 13,
+                          color: active ? t.color : C.textMuted,
+                        }}
+                      >
+                        {t.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
               </View>
 
-              {/* Name */}
-              <TextInput
-                value={name}
-                onChangeText={(v) => setName(v.slice(0, 40))}
-                placeholder="Category name (e.g. Gym & Fitness)"
-                placeholderTextColor={C.textMuted}
-                autoCapitalize="words"
+              {/* Live preview tile + name in one box — the tile mirrors the
+               *  emoji/color picks below, so what you compose is what you get. */}
+              <View
                 style={{
-                  fontFamily: 'DMSans_500Medium',
-                  fontSize: 15,
-                  color: C.textPrimary,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 10,
                   backgroundColor: C.pageBg,
-                  borderRadius: 10,
+                  borderRadius: 12,
                   borderWidth: 1,
                   borderColor: C.border,
                   paddingHorizontal: 12,
                   paddingVertical: 10,
                 }}
-              />
-
-              {/* Emoji picker */}
-              <View>
-                <Text
+              >
+                <View
                   style={{
-                    fontFamily: 'DMSans_500Medium',
-                    fontSize: 11,
-                    color: C.textMuted,
-                    marginBottom: 6,
-                    letterSpacing: 0.4,
+                    width: 40,
+                    height: 40,
+                    borderRadius: 12,
+                    backgroundColor: `${color}22`,
+                    alignItems: 'center',
+                    justifyContent: 'center',
                   }}
                 >
-                  EMOJI
-                </Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                  {EMOJI_OPTIONS.map((e) => (
-                    <Pressable
-                      key={e}
-                      onPress={() => setEmoji(e)}
-                      style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: 10,
-                        backgroundColor: emoji === e ? `${color}22` : C.borderLight,
-                        borderWidth: emoji === e ? 2 : 0,
-                        borderColor: color,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <Text style={{ fontSize: 18 }}>{e}</Text>
-                    </Pressable>
-                  ))}
+                  <Text style={{ fontSize: 20 }}>{emoji}</Text>
                 </View>
-              </View>
-
-              {/* Color picker */}
-              <View>
-                <Text
+                <TextInput
+                  value={name}
+                  onChangeText={(v) => setName(v.slice(0, 40))}
+                  placeholder="Category name (e.g. Gym & Fitness)"
+                  placeholderTextColor={C.textMuted}
+                  autoCapitalize="words"
                   style={{
+                    flex: 1,
                     fontFamily: 'DMSans_500Medium',
-                    fontSize: 11,
-                    color: C.textMuted,
-                    marginBottom: 6,
-                    letterSpacing: 0.4,
+                    fontSize: 15,
+                    color: C.textPrimary,
+                    padding: 0,
                   }}
-                >
-                  COLOR
-                </Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                  {COLOR_OPTIONS.map((c) => (
-                    <Pressable
-                      key={c}
-                      onPress={() => setColor(c)}
-                      style={{
-                        width: 30,
-                        height: 30,
-                        borderRadius: 15,
-                        backgroundColor: c,
-                        borderWidth: color === c ? 3 : 0,
-                        borderColor: C.surface,
-                        shadowColor: color === c ? c : 'transparent',
-                        shadowOffset: { width: 0, height: 2 },
-                        shadowOpacity: 0.4,
-                        shadowRadius: 4,
-                      }}
-                    />
-                  ))}
-                </View>
+                />
               </View>
 
-              <Pressable
+              <EmojiGrid selected={emoji} tint={color} onSelect={setEmoji} />
+              <ColorDots selected={color} onSelect={setColor} />
+
+              <SpringPressable
                 onPress={onAdd}
                 disabled={!name.trim()}
+                haptic
                 style={{
                   backgroundColor: name.trim() ? C.buttonPrimaryBg : C.borderLight,
                   borderRadius: 12,
@@ -297,7 +281,7 @@ export default function CategoriesScreen() {
                 >
                   Add category
                 </Text>
-              </Pressable>
+              </SpringPressable>
             </View>
           )}
 
@@ -321,6 +305,108 @@ export default function CategoriesScreen() {
   );
 }
 
+/* ──────────────────────────────────────────────────────────────────────
+ * Shared pickers
+ * ──────────────────────────────────────────────────────────────────── */
+
+function EmojiGrid({
+  selected,
+  tint,
+  onSelect,
+}: {
+  selected: string;
+  tint: string;
+  onSelect: (e: string) => void;
+}) {
+  const C = useAppTheme();
+  return (
+    <View>
+      <Text
+        style={{
+          fontFamily: 'DMSans_500Medium',
+          fontSize: 11,
+          color: C.textMuted,
+          marginBottom: 6,
+          letterSpacing: 0.4,
+        }}
+      >
+        EMOJI
+      </Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+        {EMOJI_OPTIONS.map((e) => (
+          <Pressable
+            key={e}
+            onPress={() => onSelect(e)}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              backgroundColor: selected === e ? `${tint}22` : C.borderLight,
+              borderWidth: selected === e ? 2 : 0,
+              borderColor: tint,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Text style={{ fontSize: 18 }}>{e}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function ColorDots({
+  selected,
+  onSelect,
+}: {
+  selected: string;
+  onSelect: (c: string) => void;
+}) {
+  const C = useAppTheme();
+  return (
+    <View>
+      <Text
+        style={{
+          fontFamily: 'DMSans_500Medium',
+          fontSize: 11,
+          color: C.textMuted,
+          marginBottom: 6,
+          letterSpacing: 0.4,
+        }}
+      >
+        COLOR
+      </Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        {COLOR_OPTIONS.map((c) => {
+          const active = selected === c;
+          return (
+            <Pressable
+              key={c}
+              onPress={() => onSelect(c)}
+              style={{
+                width: 30,
+                height: 30,
+                borderRadius: 15,
+                backgroundColor: c,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {/* A check beats a subtle ring — selection is unmissable. */}
+              {active && <Check size={15} color="#FFFFFF" strokeWidth={3} />}
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+ * Category list
+ * ──────────────────────────────────────────────────────────────────── */
+
 function CategoryGroup({
   title,
   categories,
@@ -331,24 +417,31 @@ function CategoryGroup({
   title: string;
   categories: ExpenseCategory[];
   txnCountByCategory: Map<string, number>;
-  onUpdate: (id: string, patch: { name?: string }) => Promise<void>;
+  onUpdate: (id: string, patch: { name?: string; emoji?: string; color?: string }) => Promise<void>;
   onDelete: (cat: ExpenseCategory) => void;
 }) {
   const C = useAppTheme();
+  // Inline editor state — one category at a time, whole look editable
+  // (name, emoji AND color), not just the name.
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [renameText, setRenameText] = useState('');
+  const [draftName, setDraftName] = useState('');
+  const [draftEmoji, setDraftEmoji] = useState(EMOJI_OPTIONS[0]);
+  const [draftColor, setDraftColor] = useState(COLOR_OPTIONS[0]);
 
-  const startRename = (cat: ExpenseCategory) => {
+  const startEdit = (cat: ExpenseCategory) => {
     setEditingId(cat.id);
-    setRenameText(cat.name);
+    setDraftName(cat.name);
+    setDraftEmoji(cat.emoji);
+    setDraftColor(cat.color);
   };
 
-  const commitRename = async () => {
+  const commitEdit = async () => {
     if (!editingId) return;
-    const trimmed = renameText.trim();
-    if (trimmed) await onUpdate(editingId, { name: trimmed });
+    const trimmed = draftName.trim();
+    if (trimmed) {
+      await onUpdate(editingId, { name: trimmed, emoji: draftEmoji, color: draftColor });
+    }
     setEditingId(null);
-    setRenameText('');
   };
 
   return (
@@ -382,9 +475,114 @@ function CategoryGroup({
           {categories.map((c) => {
             const count = txnCountByCategory.get(c.id) ?? 0;
             const isEditing = editingId === c.id;
+
+            if (isEditing) {
+              return (
+                <View
+                  key={c.id}
+                  style={{
+                    backgroundColor: C.surface,
+                    borderRadius: 12,
+                    padding: 14,
+                    borderWidth: 1,
+                    borderColor: C.accent,
+                    gap: 12,
+                  }}
+                >
+                  {/* Live preview tile + name. */}
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 10,
+                      backgroundColor: C.pageBg,
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: C.border,
+                      paddingHorizontal: 12,
+                      paddingVertical: 10,
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 12,
+                        backgroundColor: `${draftColor}22`,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Text style={{ fontSize: 20 }}>{draftEmoji}</Text>
+                    </View>
+                    <TextInput
+                      value={draftName}
+                      onChangeText={(v) => setDraftName(v.slice(0, 40))}
+                      autoFocus
+                      onSubmitEditing={commitEdit}
+                      style={{
+                        flex: 1,
+                        fontFamily: 'DMSans_600SemiBold',
+                        fontSize: 15,
+                        color: C.textPrimary,
+                        padding: 0,
+                      }}
+                    />
+                  </View>
+
+                  <EmojiGrid selected={draftEmoji} tint={draftColor} onSelect={setDraftEmoji} />
+                  <ColorDots selected={draftColor} onSelect={setDraftColor} />
+
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <SpringPressable
+                      onPress={commitEdit}
+                      disabled={!draftName.trim()}
+                      haptic
+                      style={{
+                        flex: 1,
+                        backgroundColor: draftName.trim() ? C.accent : C.borderLight,
+                        borderRadius: 10,
+                        paddingVertical: 11,
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontFamily: 'DMSans_600SemiBold',
+                          fontSize: 13,
+                          color: draftName.trim() ? '#FFFFFF' : C.textMuted,
+                        }}
+                      >
+                        Save
+                      </Text>
+                    </SpringPressable>
+                    <Pressable
+                      onPress={() => setEditingId(null)}
+                      hitSlop={6}
+                      style={{
+                        paddingHorizontal: 14,
+                        paddingVertical: 11,
+                        borderRadius: 10,
+                        borderWidth: 1,
+                        borderColor: C.border,
+                      }}
+                    >
+                      <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 13, color: C.textSecondary }}>
+                        Cancel
+                      </Text>
+                    </Pressable>
+                    <Pressable onPress={() => onDelete(c)} hitSlop={6} style={{ padding: 8 }}>
+                      <Trash2 size={18} color="#94A3B8" />
+                    </Pressable>
+                  </View>
+                </View>
+              );
+            }
+
             return (
-              <View
+              <Pressable
                 key={c.id}
+                onPress={() => startEdit(c)}
                 style={{
                   backgroundColor: C.surface,
                   borderRadius: 12,
@@ -409,49 +607,30 @@ function CategoryGroup({
                   <Text style={{ fontSize: 20 }}>{c.emoji}</Text>
                 </View>
                 <View style={{ flex: 1 }}>
-                  {isEditing ? (
-                    <TextInput
-                      value={renameText}
-                      onChangeText={(v) => setRenameText(v.slice(0, 40))}
-                      autoFocus
-                      onBlur={commitRename}
-                      onSubmitEditing={commitRename}
-                      style={{
-                        fontFamily: 'DMSans_600SemiBold',
-                        fontSize: 15,
-                        color: C.textPrimary,
-                        padding: 0,
-                      }}
-                    />
-                  ) : (
-                    <Pressable onPress={() => startRename(c)}>
-                      <Text
-                        style={{
-                          fontFamily: 'DMSans_600SemiBold',
-                          fontSize: 15,
-                          color: C.textPrimary,
-                        }}
-                      >
-                        {c.name}
-                      </Text>
-                      <Text
-                        style={{
-                          fontFamily: 'DMSans_400Regular',
-                          fontSize: 11,
-                          color: C.textMuted,
-                          marginTop: 1,
-                        }}
-                      >
-                        {count === 0 ? 'No transactions' : `${count} transaction${count === 1 ? '' : 's'}`}
-                        {c.isDefault ? ' · default' : ''}
-                      </Text>
-                    </Pressable>
-                  )}
+                  <Text
+                    numberOfLines={1}
+                    style={{
+                      fontFamily: 'DMSans_600SemiBold',
+                      fontSize: 15,
+                      color: C.textPrimary,
+                    }}
+                  >
+                    {c.name}
+                  </Text>
+                  <Text
+                    style={{
+                      fontFamily: 'DMSans_400Regular',
+                      fontSize: 11,
+                      color: C.textMuted,
+                      marginTop: 1,
+                    }}
+                  >
+                    {count === 0 ? 'No transactions' : `${count} transaction${count === 1 ? '' : 's'}`}
+                    {c.isDefault ? ' · default' : ''}
+                  </Text>
                 </View>
-                <Pressable onPress={() => onDelete(c)} hitSlop={6}>
-                  <Trash2 size={18} color="#94A3B8" />
-                </Pressable>
-              </View>
+                <Pencil size={14} color={C.textFaint} />
+              </Pressable>
             );
           })}
         </View>

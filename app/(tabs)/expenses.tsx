@@ -1,3 +1,4 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
@@ -7,8 +8,6 @@ import {
   FolderTree,
   Plus,
   Target,
-  TrendingDown,
-  TrendingUp,
   Wallet,
 } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
@@ -22,10 +21,13 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AnimatedNumber } from '@/components/AnimatedNumber';
+import { AvatarVisual } from '@/components/AvatarVisual';
 import { BarChart, type BarDatum } from '@/components/charts/BarChart';
-import { DonutChart, DonutLegend, type DonutSlice } from '@/components/charts/DonutChart';
 import { InsightsCard } from '@/components/expenses/InsightsCard';
 import { SurplusRouterCard } from '@/components/expenses/SurplusRouterCard';
+import { SpringPressable } from '@/components/SpringPressable';
+import { useAvatarStore } from '@/lib/stores/avatar';
 import { CURRENCIES, formatAmount, type CurrencyCode } from '@/lib/currency';
 import { exportTransactionsToCsv } from '@/lib/expenses/csv-export';
 import { getCachedRates, getFxRates } from '@/lib/expenses/fx';
@@ -56,6 +58,7 @@ export default function ExpensesScreen() {
 
   const userId = useSessionStore((s) => s.userId);
   const profile = useProfileStore((s) => s.profile);
+  const avatarId = useAvatarStore((s) => s.id);
   const homeCurrency: CurrencyCode = profile?.defaultCurrency ?? 'USD';
 
   const categories = useExpenseCategoriesStore((s) => s.categories);
@@ -71,6 +74,7 @@ export default function ExpensesScreen() {
 
   const [rates, setRates] = useState<Record<string, number>>(() => getCachedRates());
   const [periodAnchor, setPeriodAnchor] = useState<string>(currentMonthAnchor());
+  const [showAllCategories, setShowAllCategories] = useState(false);
 
   // Initial load: hydrate stores + warm FX cache. seedDefaults is idempotent.
   useEffect(() => {
@@ -107,12 +111,53 @@ export default function ExpensesScreen() {
     [transactions, homeCurrency, rates],
   );
 
-  const monthTxns = useMemo(() => {
+  // One-sentence conclusion for the trend chart: how the viewed month sits
+  // against the 6-month average. Spending below average reads green.
+  const trendSummary = useMemo(() => {
+    const cur = trend.find((b) => b.monthAnchor === periodAnchor);
+    const nonZero = trend.filter((b) => b.expenseCents > 0);
+    if (!cur || cur.expenseCents === 0 || nonZero.length < 2) return null;
+    const avg = nonZero.reduce((s, b) => s + b.expenseCents, 0) / nonZero.length;
+    const diff = (cur.expenseCents - avg) / avg;
+    const pct = Math.round(Math.abs(diff) * 100);
+    const month = monthNameOf(periodAnchor);
+    if (pct < 3) {
+      return { prefix: `${month} is `, highlight: 'right on', suffix: ' your 6-month average', tone: 'neutral' as const };
+    }
+    return {
+      prefix: `${month} is `,
+      highlight: `${pct}% ${diff > 0 ? 'above' : 'below'}`,
+      suffix: ' your 6-month average',
+      tone: diff > 0 ? ('bad' as const) : ('good' as const),
+    };
+  }, [trend, periodAnchor]);
+
+  const { monthTxns, monthTxnCount } = useMemo(() => {
     const prefix = periodAnchor.slice(0, 7);
-    return transactions
-      .filter((t) => t.occurredOn.startsWith(prefix))
-      .slice(0, 30);
+    const all = transactions.filter((t) => t.occurredOn.startsWith(prefix));
+    // Render cap keeps the list light; the count keeps the truncation honest.
+    return { monthTxns: all.slice(0, 30), monthTxnCount: all.length };
   }, [transactions, periodAnchor]);
+
+  // Transactions grouped by day (newest first), each with the day's net in
+  // home currency for the group header.
+  const groupedTxns = useMemo(() => {
+    const toHomeCents = (t: ExpenseTransaction) =>
+      Math.round((t.amountCents * (rates[homeCurrency] ?? 1)) / (rates[t.currency] ?? 1));
+    const sorted = [...monthTxns].sort((a, b) => b.occurredOn.localeCompare(a.occurredOn));
+    const groups: { date: string; txns: ExpenseTransaction[]; netCents: number }[] = [];
+    for (const t of sorted) {
+      let g = groups[groups.length - 1];
+      if (!g || g.date !== t.occurredOn) {
+        g = { date: t.occurredOn, txns: [], netCents: 0 };
+        groups.push(g);
+      }
+      g.txns.push(t);
+      g.netCents += t.type === 'income' ? toHomeCents(t) : -toHomeCents(t);
+    }
+    return groups;
+  }, [monthTxns, rates, homeCurrency]);
+
 
   const overallBudget = useMemo(
     () => budgets.find((b) => b.categoryId === null && b.periodMonth === periodAnchor),
@@ -145,106 +190,352 @@ export default function ExpensesScreen() {
   // ── render ──
   return (
     <View style={{ flex: 1, backgroundColor: C.pageBg }}>
-      <StatusBar style={C.mode === 'dark' ? 'light' : 'dark'} />
+      <StatusBar style="light" />
 
       <ScrollView
         contentContainerStyle={{ paddingBottom: 100 + insets.bottom }}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Header ── */}
-        <View
-          style={{
-            paddingTop: insets.top + 12,
-            paddingHorizontal: 20,
-            paddingBottom: 12,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <Text
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {/* HERO — same container/size as the Stash tab                 */}
+        {/* ═══════════════════════════════════════════════════════════ */}
+        <View style={{ paddingBottom: 52, backgroundColor: C.heroTop }}>
+          {/* Background gradient (absolute-fill wrapper, like Stash). */}
+          <View
+            pointerEvents="none"
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' }}
+          >
+            <LinearGradient
+              colors={[C.heroTop, C.heroMid, C.heroBot]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={{ width: '100%', height: '100%' }}
+            />
+          </View>
+
+          {/* Top bar: avatar (left) + actions (right) — matches Stash/Home. */}
+          <View
             style={{
-              fontFamily: 'DMSans_700Bold',
-              fontSize: 24,
-              color: C.textPrimary,
-              letterSpacing: -0.4,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingHorizontal: 16,
+              paddingTop: insets.top + 12,
             }}
           >
-            Expenses
-          </Text>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <HeaderIconButton onPress={() => router.push('/expenses/categories')}>
-              <FolderTree size={20} color={C.textSecondary} />
-            </HeaderIconButton>
-            <HeaderIconButton onPress={() => router.push('/expenses/budgets')}>
-              <Target size={20} color={C.textSecondary} />
-            </HeaderIconButton>
-            <HeaderIconButton onPress={onExport}>
-              <Download size={20} color={C.textSecondary} />
-            </HeaderIconButton>
+            <SpringPressable
+              onPress={() => router.push('/(tabs)/profile')}
+              haptic
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 19,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.18)',
+                overflow: 'hidden',
+                backgroundColor: 'rgba(255,255,255,0.06)',
+              }}
+            >
+              <AvatarVisual avatar={avatarId} size={36} />
+            </SpringPressable>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <HeroIconButton onPress={() => router.push('/expenses/categories')}>
+                <FolderTree size={18} color="#FFFFFF" />
+              </HeroIconButton>
+              <HeroIconButton onPress={() => router.push('/expenses/budgets')}>
+                <Target size={18} color="#FFFFFF" />
+              </HeroIconButton>
+              <HeroIconButton onPress={onExport}>
+                <Download size={18} color="#FFFFFF" />
+              </HeroIconButton>
+            </View>
+          </View>
+
+          {/* Eyebrow + big number — this month's spend, same treatment as the
+           *  Stash "total saved" hero. */}
+          <View style={{ paddingTop: 28, paddingHorizontal: 20, alignItems: 'center' }}>
+            <Text
+              allowFontScaling={false}
+              maxFontSizeMultiplier={1}
+              numberOfLines={1}
+              style={{
+                fontFamily: 'DMSans_500Medium',
+                fontSize: 9,
+                color: 'rgba(255,255,255,0.55)',
+                letterSpacing: 0.8,
+                marginBottom: 3,
+                textAlign: 'center',
+              }}
+            >
+              {monthTotals.balanceCents >= 0 ? 'SAVED' : 'OVERSPENT'}
+            </Text>
+            <AnimatedNumber
+              value={Math.abs(monthTotals.balanceCents) / 100}
+              formatter={(n) => formatAmount(n, homeCurrency)}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.55}
+              style={{
+                fontFamily: 'DMSans_700Bold',
+                fontSize: 40,
+                // Overspent (negative) reads red; otherwise the calm white
+                // headline like the Stash total.
+                color: monthTotals.balanceCents >= 0 ? '#FFFFFF' : '#FCA5A5',
+                letterSpacing: -1.2,
+                lineHeight: 48,
+                textAlign: 'center',
+              }}
+            />
+
+            {/* Income · Spent stats — the two flows behind the "saved"
+             *  headline. */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 14 }}>
+              <HeroStat
+                label="INCOME"
+                value={formatAmount(monthTotals.incomeCents / 100, homeCurrency)}
+                color="#86EFAC"
+              />
+              <View style={{ width: 1, height: 30, backgroundColor: 'rgba(255,255,255,0.18)' }} />
+              <HeroStat
+                label="SPENT"
+                value={formatAmount(monthTotals.expenseCents / 100, homeCurrency)}
+                color="#FCA5A5"
+              />
+            </View>
+          </View>
+
+          {/* Floating month switcher — same pill as the Stash currency pill,
+           *  half on the hero / half on the content below. */}
+          <View
+            pointerEvents="box-none"
+            style={{ position: 'absolute', left: 0, right: 0, bottom: -14, alignItems: 'center' }}
+          >
+            <View
+              style={{
+                borderRadius: 999,
+                shadowColor: '#000',
+                shadowOpacity: 0.14,
+                shadowRadius: 10,
+                shadowOffset: { width: 0, height: 4 },
+                elevation: 6,
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  borderRadius: 999,
+                  overflow: 'hidden',
+                  paddingHorizontal: 6,
+                  gap: 4,
+                  backgroundColor: '#FFFFFF',
+                }}
+              >
+                <SpringPressable
+                  onPress={goPrevMonth}
+                  haptic
+                  style={{ paddingVertical: 7, paddingHorizontal: 9 }}
+                >
+                  <ChevronLeft size={16} color="#06291F" />
+                </SpringPressable>
+                <Text
+                  style={{
+                    fontFamily: 'DMSans_700Bold',
+                    fontSize: 11,
+                    color: '#06291F',
+                    letterSpacing: 0.6,
+                    minWidth: 84,
+                    textAlign: 'center',
+                  }}
+                >
+                  {formatMonth(periodAnchor)}
+                </Text>
+                <SpringPressable
+                  onPress={goNextMonth}
+                  disabled={periodAnchor >= currentMonthAnchor()}
+                  haptic
+                  style={{
+                    opacity: periodAnchor >= currentMonthAnchor() ? 0.3 : 1,
+                    paddingVertical: 7,
+                    paddingHorizontal: 9,
+                  }}
+                >
+                  <ChevronRight size={16} color="#06291F" />
+                </SpringPressable>
+              </View>
+            </View>
           </View>
         </View>
 
-        {/* ── Month selector ── */}
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 16,
-            marginBottom: 12,
-          }}
-        >
-          <Pressable onPress={goPrevMonth} hitSlop={12}>
-            <ChevronLeft size={22} color={C.textSecondary} />
-          </Pressable>
-          <Text
+        {/* ── Where it went — the tab's core question, so it leads. The
+         *  wrapper margin brings the hero → first-content gap to 38px
+         *  (14 + the header's 24), matching Home and Stash. ── */}
+        <View style={{ marginTop: 14 }}>
+          <SectionHeader
+            title="Where it went"
+            actionLabel="Manage"
+            onAction={() => router.push('/expenses/categories')}
+          />
+        </View>
+        {categoryBreakdown.length === 0 ? (
+          <EmptyHint
+            message="Nothing logged this month yet. Tap to add your first expense."
+            onPress={onAdd}
+          />
+        ) : (
+          <View
             style={{
-              fontFamily: 'DMSans_600SemiBold',
-              fontSize: 16,
-              color: C.textPrimary,
-              minWidth: 140,
-              textAlign: 'center',
+              backgroundColor: C.surface,
+              marginHorizontal: 16,
+              borderRadius: 16,
+              padding: 16,
+              gap: 16,
+              borderWidth: 1,
+              borderColor: C.border,
             }}
           >
-            {formatMonth(periodAnchor)}
-          </Text>
-          <Pressable
-            onPress={goNextMonth}
-            hitSlop={12}
-            disabled={periodAnchor >= currentMonthAnchor()}
-          >
-            <ChevronRight
-              size={22}
-              color={periodAnchor >= currentMonthAnchor() ? C.borderLight : C.textSecondary}
-            />
-          </Pressable>
-        </View>
+            {/* Composition bar — every category's share in one glance. Same
+             *  segmented-bar idiom as the Home Safe-to-Spend card; easier to
+             *  compare than donut angles. */}
+            <View
+              style={{
+                height: 12,
+                borderRadius: 6,
+                overflow: 'hidden',
+                flexDirection: 'row',
+                gap: 2,
+                backgroundColor: C.borderLight,
+              }}
+            >
+              {categoryBreakdown.map((b) => (
+                <View
+                  key={b.categoryId ?? 'uncategorized'}
+                  style={{
+                    width: `${Math.max(1, (b.amountCents / Math.max(1, monthTotals.expenseCents)) * 100)}%`,
+                    backgroundColor: categoryMap.get(b.categoryId ?? '')?.color ?? '#94A3B8',
+                  }}
+                />
+              ))}
+            </View>
 
-        {/* ── Overview cards ── */}
-        <View style={{ paddingHorizontal: 16, gap: 10 }}>
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <OverviewCard
-              icon={<TrendingUp size={18} color="#10B981" />}
-              label="Income"
-              amount={monthTotals.incomeCents / 100}
-              currency={homeCurrency}
-              tone="income"
-            />
-            <OverviewCard
-              icon={<TrendingDown size={18} color="#EF4444" />}
-              label="Expenses"
-              amount={monthTotals.expenseCents / 100}
-              currency={homeCurrency}
-              tone="expense"
-            />
+            {/* Ranked category rows — icon tile, name, amount, share bar. */}
+            <View style={{ gap: 14 }}>
+              {(showAllCategories ? categoryBreakdown : categoryBreakdown.slice(0, 5)).map((b) => {
+                const cat = b.categoryId ? categoryMap.get(b.categoryId) : null;
+                const color = cat?.color ?? '#94A3B8';
+                const pct =
+                  monthTotals.expenseCents > 0
+                    ? Math.round((b.amountCents / monthTotals.expenseCents) * 100)
+                    : 0;
+                return (
+                  <View
+                    key={b.categoryId ?? 'uncategorized'}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}
+                  >
+                    <View
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 11,
+                        backgroundColor: `${color}1F`,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Text style={{ fontSize: 17 }}>{cat?.emoji ?? '💵'}</Text>
+                    </View>
+                    <View style={{ flex: 1, gap: 6 }}>
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 8,
+                        }}
+                      >
+                        <Text
+                          numberOfLines={1}
+                          style={{
+                            flexShrink: 1,
+                            fontFamily: 'DMSans_600SemiBold',
+                            fontSize: 14,
+                            color: C.textPrimary,
+                          }}
+                        >
+                          {cat?.name ?? 'Uncategorized'}
+                        </Text>
+                        <Text
+                          style={{
+                            fontFamily: 'DMSans_700Bold',
+                            fontSize: 14,
+                            color: C.textPrimary,
+                            letterSpacing: -0.2,
+                          }}
+                        >
+                          {formatAmount(b.amountCents / 100, homeCurrency)}
+                        </Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <View
+                          style={{
+                            flex: 1,
+                            height: 5,
+                            borderRadius: 3,
+                            backgroundColor: C.borderLight,
+                            overflow: 'hidden',
+                          }}
+                        >
+                          <View
+                            style={{
+                              width: `${Math.max(1, pct)}%`,
+                              height: '100%',
+                              borderRadius: 3,
+                              backgroundColor: color,
+                            }}
+                          />
+                        </View>
+                        <Text
+                          style={{
+                            fontFamily: 'DMSans_500Medium',
+                            fontSize: 11,
+                            color: C.textMuted,
+                            minWidth: 32,
+                            textAlign: 'right',
+                          }}
+                        >
+                          {pct}%
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+
+            {/* Expander — nothing is silently hidden. */}
+            {categoryBreakdown.length > 5 && (
+              <Pressable
+                onPress={() => setShowAllCategories((v) => !v)}
+                hitSlop={6}
+                style={{ alignItems: 'center', paddingTop: 2 }}
+              >
+                <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 13, color: C.accent }}>
+                  {showAllCategories
+                    ? 'Show less'
+                    : `Show all ${categoryBreakdown.length} categories`}
+                </Text>
+              </Pressable>
+            )}
           </View>
-          <BalanceCard amount={monthTotals.balanceCents / 100} currency={homeCurrency} />
-        </View>
+        )}
 
-        {/* ── Budget progress ── */}
-        {overallProgress && (
-          <View style={{ paddingHorizontal: 16, marginTop: 16 }}>
+        {/* ── Budget: progress when set, else a "create a monthly budget" CTA
+         *  (the same dashed card used on the Home tab). ── */}
+        <View style={{ paddingHorizontal: 16, marginTop: 12 }}>
+          {overallProgress ? (
             <BudgetProgressCard
               spent={overallProgress.spentCents / 100}
               limit={overallProgress.budget.limitCents / 100}
@@ -253,97 +544,50 @@ export default function ExpensesScreen() {
               currency={overallProgress.budget.currency}
               onPress={() => router.push('/expenses/budgets')}
             />
-          </View>
-        )}
-
-        {/* ── Spending insights (Stashbox+) ── */}
-        <View style={{ paddingHorizontal: 16, marginTop: 16 }}>
-          <InsightsCard />
+          ) : (
+            <SpringPressable
+              onPress={() => router.push('/expenses/budgets')}
+              haptic
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 12,
+                backgroundColor: C.surfaceElevated,
+                borderRadius: 18,
+                borderWidth: 1,
+                borderColor: C.border,
+                borderStyle: 'dashed',
+                padding: 14,
+              }}
+            >
+              <Wallet size={18} color={C.textSecondary} />
+              <Text
+                style={{ flex: 1, fontFamily: 'DMSans_500Medium', fontSize: 13, color: C.textSecondary }}
+              >
+                Set a monthly budget to see what&apos;s safe to spend
+              </Text>
+              <ChevronRight size={16} color={C.textSecondary} />
+            </SpringPressable>
+          )}
         </View>
 
-        {/* ── Surplus router: send this month's leftover to a loan or goal.
+        {/* ── Spending insights (Stashbox+) ──
+         *  Spacing lives on the card itself: when it renders null there is no
+         *  phantom margin pushing the next section around. */}
+        <InsightsCard style={{ marginHorizontal: 16, marginTop: 12 }} />
+
+        {/* ── Surplus router: send this month's leftover toward a savings goal.
          *  Only for the current month (a past month's "surplus" isn't actionable). */}
         {periodAnchor === currentMonthAnchor() && (
-          <View style={{ paddingHorizontal: 16, marginTop: 16 }}>
-            <SurplusRouterCard surplusCents={monthTotals.balanceCents} currency={homeCurrency} />
-          </View>
+          <SurplusRouterCard
+            surplusCents={monthTotals.balanceCents}
+            currency={homeCurrency}
+            style={{ marginHorizontal: 16, marginTop: 12 }}
+          />
         )}
 
-        {/* ── Category donut ── */}
-        <SectionHeader title="Where it went" actionLabel="Manage" onAction={() => router.push('/expenses/categories')} />
-        {categoryBreakdown.length === 0 ? (
-          <EmptyHint message="No expenses logged this month yet." />
-        ) : (
-          <View
-            style={{
-              backgroundColor: C.surface,
-              marginHorizontal: 16,
-              borderRadius: 16,
-              padding: 16,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 16,
-              borderWidth: 1,
-              borderColor: C.border,
-            }}
-          >
-            <DonutChart
-              size={140}
-              slices={categoryBreakdown.map<DonutSlice>((b) => ({
-                key: b.categoryId ?? 'uncategorized',
-                value: b.amountCents,
-                color: categoryMap.get(b.categoryId ?? '')?.color ?? '#94A3B8',
-              }))}
-              centerLabel={
-                <View style={{ alignItems: 'center' }}>
-                  <Text
-                    style={{
-                      fontFamily: 'DMSans_400Regular',
-                      fontSize: 10,
-                      color: C.textMuted,
-                      letterSpacing: 1,
-                    }}
-                  >
-                    SPENT
-                  </Text>
-                  <Text
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                    style={{
-                      fontFamily: 'DMSans_700Bold',
-                      fontSize: 16,
-                      color: C.textPrimary,
-                      maxWidth: 80,
-                    }}
-                  >
-                    {formatAmount(monthTotals.expenseCents / 100, homeCurrency)}
-                  </Text>
-                </View>
-              }
-            />
-            <View style={{ flex: 1 }}>
-              <DonutLegend
-                slices={categoryBreakdown.slice(0, 5).map((b) => {
-                  const cat = b.categoryId ? categoryMap.get(b.categoryId) : null;
-                  const pct =
-                    monthTotals.expenseCents > 0
-                      ? Math.round((b.amountCents / monthTotals.expenseCents) * 100)
-                      : 0;
-                  return {
-                    key: b.categoryId ?? 'uncategorized',
-                    label: cat ? `${cat.emoji} ${cat.name}` : 'Uncategorized',
-                    sub: `${pct}%`,
-                    value: b.amountCents,
-                    color: cat?.color ?? '#94A3B8',
-                  };
-                })}
-              />
-            </View>
-          </View>
-        )}
-
-        {/* ── Monthly trend ── */}
-        <SectionHeader title="Last 6 months" />
+        {/* ── Last 6 months (trend) ── */}
+        <SectionHeader title="Last 6 months" meta="Tap a month to view it" />
         <View
           style={{
             backgroundColor: C.surface,
@@ -365,73 +609,161 @@ export default function ExpensesScreen() {
               color: b.monthAnchor === periodAnchor ? C.accent : C.accentLight,
             }))}
             formatValue={(v) => formatAbbrev(v, homeCurrency)}
+            onBarPress={(key) => setPeriodAnchor(key)}
+            selectedKey={periodAnchor}
+            showAverage
           />
+          {/* Takeaway — the chart's conclusion in one sentence. */}
+          {trendSummary && (
+            <Text
+              style={{
+                fontFamily: 'DMSans_500Medium',
+                fontSize: 12,
+                color: C.textSecondary,
+                textAlign: 'center',
+                paddingTop: 10,
+                paddingHorizontal: 8,
+              }}
+            >
+              {trendSummary.prefix}
+              <Text
+                style={{
+                  fontFamily: 'DMSans_700Bold',
+                  color: trendSummary.tone === 'good' ? '#16A34A' : trendSummary.tone === 'bad' ? '#DC2626' : C.textPrimary,
+                }}
+              >
+                {trendSummary.highlight}
+              </Text>
+              {trendSummary.suffix}
+            </Text>
+          )}
         </View>
 
         {/* ── Transactions ── */}
-        <SectionHeader title="Transactions" actionLabel="See all" onAction={() => {}} />
+        <SectionHeader
+          title="Transactions"
+          meta={monthTxnCount > 0 ? `${monthTxnCount} this month` : undefined}
+        />
         {txnsLoading && monthTxns.length === 0 ? (
           <View style={{ paddingVertical: 24, alignItems: 'center' }}>
             <ActivityIndicator color={C.accent} />
           </View>
         ) : monthTxns.length === 0 ? (
-          <EmptyHint message="Tap + to log your first transaction." />
+          <EmptyHint message="Nothing here yet. Tap to log a transaction." onPress={onAdd} />
         ) : (
           <View style={{ paddingHorizontal: 16, gap: 8 }}>
-            {monthTxns.map((t) => (
-              <TransactionRow
-                key={t.id}
-                txn={t}
-                category={t.categoryId ? categoryMap.get(t.categoryId) ?? null : null}
-                homeCurrency={homeCurrency}
-                rates={rates}
-                onPress={() => onEdit(t.id)}
-              />
+            {groupedTxns.map((g) => (
+              <View key={g.date} style={{ gap: 8 }}>
+                {/* Day header: label left, day net right. */}
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    paddingHorizontal: 4,
+                    paddingTop: 8,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: 'DMSans_600SemiBold',
+                      fontSize: 12,
+                      color: C.textMuted,
+                      letterSpacing: 0.3,
+                    }}
+                  >
+                    {dayLabel(g.date)}
+                  </Text>
+                  {g.netCents !== 0 && (
+                    <Text
+                      style={{
+                        fontFamily: 'DMSans_500Medium',
+                        fontSize: 12,
+                        color: C.textMuted,
+                      }}
+                    >
+                      {g.netCents > 0 ? '+' : '−'}
+                      {formatAmount(Math.abs(g.netCents) / 100, homeCurrency)}
+                    </Text>
+                  )}
+                </View>
+                {g.txns.map((t) => (
+                  <TransactionRow
+                    key={t.id}
+                    txn={t}
+                    category={t.categoryId ? categoryMap.get(t.categoryId) ?? null : null}
+                    homeCurrency={homeCurrency}
+                    rates={rates}
+                    onPress={() => onEdit(t.id)}
+                  />
+                ))}
+              </View>
             ))}
+            {monthTxnCount > monthTxns.length && (
+              <Text
+                style={{
+                  fontFamily: 'DMSans_400Regular',
+                  fontSize: 12,
+                  color: C.textMuted,
+                  textAlign: 'center',
+                  paddingVertical: 8,
+                }}
+              >
+                Showing {monthTxns.length} of {monthTxnCount}. Export CSV for the full list.
+              </Text>
+            )}
           </View>
         )}
       </ScrollView>
 
-      {/* ── Floating Action Button ──
-       *  Sits 16px above the tab bar (tab bar height = 64 + insets.bottom),
-       *  so it's clearly visible above the navigation, not tucked behind it.
-       *  Pill shape with icon + label so the affordance is unmistakable. */}
-      <Pressable
-        onPress={onAdd}
-        style={({ pressed }) => ({
-          position: 'absolute',
-          right: 20,
-          bottom: 64 + insets.bottom + 16,
-          paddingHorizontal: 20,
-          height: 56,
-          borderRadius: 28,
-          backgroundColor: C.accent,
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexDirection: 'row',
-          gap: 8,
-          shadowColor: C.accent,
-          shadowOffset: { width: 0, height: 10 },
-          shadowOpacity: 0.35,
-          shadowRadius: 18,
-          elevation: 12,
-          transform: [{ scale: pressed ? 0.96 : 1 }],
-        })}
-        accessibilityLabel="Add transaction"
+      {/* Floating add button — centered, just above the tab bar. Matches the
+       *  Stash tab's "+ StashBox" gradient pill exactly. */}
+      <View
+        pointerEvents="box-none"
+        style={{ position: 'absolute', left: 0, right: 0, bottom: 16, alignItems: 'center' }}
       >
-        <Plus size={22} color="#FFFFFF" strokeWidth={2.75} />
-        <Text
-          allowFontScaling={false}
+        <SpringPressable
+          onPress={onAdd}
+          haptic
           style={{
-            fontFamily: 'DMSans_700Bold',
-            fontSize: 15,
-            color: '#FFFFFF',
-            letterSpacing: 0.2,
+            borderRadius: 26,
+            shadowColor: '#000',
+            shadowOpacity: 0.2,
+            shadowRadius: 10,
+            shadowOffset: { width: 0, height: 4 },
+            elevation: 8,
           }}
         >
-          Add
-        </Text>
-      </Pressable>
+          <LinearGradient
+            colors={[C.heroTop, C.heroMid, C.heroBot]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              borderRadius: 26,
+              overflow: 'hidden',
+              paddingHorizontal: 18,
+              paddingVertical: 13,
+            }}
+          >
+            <Plus size={18} color="#FFFFFF" />
+            <Text
+              allowFontScaling={false}
+              maxFontSizeMultiplier={1}
+              style={{
+                fontFamily: 'DMSans_600SemiBold',
+                fontSize: 14,
+                color: '#FFFFFF',
+                includeFontPadding: false,
+              }}
+            >
+              Add
+            </Text>
+          </LinearGradient>
+        </SpringPressable>
+      </View>
     </View>
   );
 }
@@ -440,123 +772,56 @@ export default function ExpensesScreen() {
  * Subcomponents
  * ──────────────────────────────────────────────────────────────────── */
 
-function HeaderIconButton({
+// White icon button for the dark hero top bar — matches Stash's history /
+// settings buttons.
+function HeroIconButton({
   children,
   onPress,
 }: {
   children: React.ReactNode;
   onPress: () => void;
 }) {
-  const C = useAppTheme();
   return (
-    <Pressable
+    <SpringPressable
       onPress={onPress}
-      hitSlop={8}
+      haptic
       style={{
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: C.surface,
-        borderWidth: 1,
-        borderColor: C.border,
+        width: 38,
+        height: 38,
+        borderRadius: 19,
         alignItems: 'center',
         justifyContent: 'center',
+        backgroundColor: 'rgba(255,255,255,0.08)',
       }}
     >
       {children}
-    </Pressable>
+    </SpringPressable>
   );
 }
 
-function OverviewCard({
-  icon,
-  label,
-  amount,
-  currency,
-  tone,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  amount: number;
-  currency: CurrencyCode;
-  tone: 'income' | 'expense';
-}) {
-  const C = useAppTheme();
-  const color = tone === 'income' ? '#10B981' : '#EF4444';
+// One stat under the hero's big number (Income / Remaining).
+function HeroStat({ label, value, color }: { label: string; value: string; color: string }) {
   return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: C.surface,
-        borderRadius: 14,
-        padding: 14,
-        borderWidth: 1,
-        borderColor: C.border,
-      }}
-    >
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-        {icon}
-        <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 12, color: C.textMuted }}>
-          {label}
-        </Text>
-      </View>
+    <View style={{ alignItems: 'center', paddingHorizontal: 20 }}>
       <Text
-        numberOfLines={1}
-        adjustsFontSizeToFit
+        allowFontScaling={false}
         style={{
-          fontFamily: 'DMSans_700Bold',
-          fontSize: 22,
-          color,
-          letterSpacing: -0.4,
+          fontFamily: 'DMSans_500Medium',
+          fontSize: 9,
+          color: 'rgba(255,255,255,0.55)',
+          letterSpacing: 0.8,
+          marginBottom: 3,
         }}
       >
-        {formatAmount(amount, currency)}
+        {label}
       </Text>
-    </View>
-  );
-}
-
-function BalanceCard({ amount, currency }: { amount: number; currency: CurrencyCode }) {
-  const C = useAppTheme();
-  const positive = amount >= 0;
-  return (
-    <View
-      style={{
-        backgroundColor: positive ? C.accentLight : '#FEE2E2',
-        borderRadius: 14,
-        padding: 16,
-        borderWidth: 1,
-        borderColor: positive ? C.accent : '#FCA5A5',
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-      }}
-    >
-      <Wallet size={22} color={positive ? C.accentDark : '#DC2626'} />
-      <View style={{ flex: 1 }}>
-        <Text
-          style={{
-            fontFamily: 'DMSans_500Medium',
-            fontSize: 12,
-            color: positive ? C.accentDark : '#991B1B',
-            letterSpacing: 0.4,
-          }}
-        >
-          REMAINING
-        </Text>
-        <Text
-          numberOfLines={1}
-          adjustsFontSizeToFit
-          style={{
-            fontFamily: 'DMSans_700Bold',
-            fontSize: 26,
-            color: positive ? C.accentDark : '#991B1B',
-            letterSpacing: -0.5,
-          }}
-        >
-          {formatAmount(amount, currency)}
-        </Text>
-      </View>
+      <Text
+        allowFontScaling={false}
+        numberOfLines={1}
+        style={{ fontFamily: 'DMSans_700Bold', fontSize: 16, color, letterSpacing: -0.3 }}
+      >
+        {value}
+      </Text>
     </View>
   );
 }
@@ -686,19 +951,24 @@ function TransactionRow({
         >
           {category?.name ?? (isIncome ? 'Income' : 'Expense')}
         </Text>
-        <Text
-          numberOfLines={1}
-          style={{ fontFamily: 'DMSans_400Regular', fontSize: 12, color: C.textMuted }}
-        >
-          {txn.note ? `${txn.note} · ${formatDay(txn.occurredOn)}` : formatDay(txn.occurredOn)}
-        </Text>
+        {/* Date lives in the day header now — the sub-line is just the note. */}
+        {txn.note ? (
+          <Text
+            numberOfLines={1}
+            style={{ fontFamily: 'DMSans_400Regular', fontSize: 12, color: C.textMuted, marginTop: 1 }}
+          >
+            {txn.note}
+          </Text>
+        ) : null}
       </View>
       <View style={{ alignItems: 'flex-end' }}>
+        {/* Income pops green; spending stays neutral — a wall of red reads
+         *  as alarm, not information. */}
         <Text
           style={{
             fontFamily: 'DMSans_700Bold',
             fontSize: 15,
-            color: isIncome ? '#10B981' : '#EF4444',
+            color: isIncome ? '#10B981' : C.textPrimary,
           }}
         >
           {isIncome ? '+' : '−'}
@@ -718,10 +988,13 @@ function SectionHeader({
   title,
   actionLabel,
   onAction,
+  meta,
 }: {
   title: string;
   actionLabel?: string;
   onAction?: () => void;
+  /** Muted right-aligned info text (count, hint) when there is no action. */
+  meta?: string;
 }) {
   const C = useAppTheme();
   return (
@@ -731,8 +1004,8 @@ function SectionHeader({
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 20,
-        paddingTop: 22,
-        paddingBottom: 8,
+        paddingTop: 24,
+        paddingBottom: 10,
       }}
     >
       <Text
@@ -745,39 +1018,49 @@ function SectionHeader({
       >
         {title}
       </Text>
-      {actionLabel && onAction && (
+      {actionLabel && onAction ? (
         <Pressable onPress={onAction} hitSlop={6}>
           <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 13, color: C.accent }}>
             {actionLabel}
           </Text>
         </Pressable>
-      )}
+      ) : meta ? (
+        <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 12, color: C.textMuted }}>
+          {meta}
+        </Text>
+      ) : null}
     </View>
   );
 }
 
-function EmptyHint({ message }: { message: string }) {
+function EmptyHint({ message, onPress }: { message: string; onPress?: () => void }) {
   const C = useAppTheme();
-  return (
-    <View
-      style={{
-        marginHorizontal: 16,
-        backgroundColor: C.surface,
-        borderRadius: 14,
-        padding: 24,
-        borderWidth: 1,
-        borderColor: C.border,
-        borderStyle: 'dashed',
-        alignItems: 'center',
-      }}
+  const content = (
+    <Text
+      style={{ fontFamily: 'DMSans_400Regular', fontSize: 13, color: C.textMuted, textAlign: 'center' }}
     >
-      <Text
-        style={{ fontFamily: 'DMSans_400Regular', fontSize: 13, color: C.textMuted, textAlign: 'center' }}
-      >
-        {message}
-      </Text>
-    </View>
+      {message}
+    </Text>
   );
+  const boxStyle = {
+    marginHorizontal: 16,
+    backgroundColor: C.surface,
+    borderRadius: 14,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderStyle: 'dashed' as const,
+    alignItems: 'center' as const,
+  };
+  // Empty states that lead somewhere are tappable, not dead ends.
+  if (onPress) {
+    return (
+      <SpringPressable onPress={onPress} haptic style={boxStyle}>
+        {content}
+      </SpringPressable>
+    );
+  }
+  return <View style={boxStyle}>{content}</View>;
 }
 
 /* ──────────────────────────────────────────────────────────────────────
@@ -807,10 +1090,24 @@ function shortMonthLabel(anchor: string): string {
   return date.toLocaleDateString(undefined, { month: 'short' });
 }
 
-function formatDay(date: string): string {
+function monthNameOf(anchor: string): string {
+  const [yStr, mStr] = anchor.split('-');
+  const date = new Date(Number(yStr), Number(mStr) - 1, 1);
+  return date.toLocaleDateString(undefined, { month: 'long' });
+}
+
+/** Day-group header label: Today / Yesterday / "Fri, Jul 4". */
+function dayLabel(date: string): string {
+  const ymd = (dt: Date) =>
+    `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+  const now = new Date();
+  if (date === ymd(now)) return 'Today';
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (date === ymd(yesterday)) return 'Yesterday';
   const [y, m, d] = date.split('-').map(Number);
   const dt = new Date(y, m - 1, d);
-  return dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return dt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
 function formatAbbrev(amount: number, currency: CurrencyCode): string {

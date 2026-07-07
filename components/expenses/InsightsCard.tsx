@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { Lock, Sparkles } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { SpringPressable } from '@/components/SpringPressable';
@@ -41,7 +41,7 @@ function useSpendingInsights(): SpendingInsights {
  * Only renders when there's something to surface, so we never sell an empty
  * feature. Free users see a locked teaser previewing the real signal.
  */
-export function InsightsCard() {
+export function InsightsCard({ style }: { style?: StyleProp<ViewStyle> }) {
   const C = useAppTheme();
   const router = useRouter();
   const isPro = useEntitlement();
@@ -80,7 +80,7 @@ export function InsightsCard() {
         ? `${catById.get(topAnomaly.categoryId)!.name} is trending up this month`
         : `~${formatAmount(Math.round(recurringTotal / 100), insights.currency)}/mo in recurring charges`;
     return (
-      <Animated.View entering={FadeInDown.duration(400)}>
+      <Animated.View entering={FadeInDown.duration(400)} style={style}>
         <SpringPressable
           onPress={() => {
             track('upsell_tapped', { source: 'expenses_insights' });
@@ -107,7 +107,7 @@ export function InsightsCard() {
   }
 
   return (
-    <Animated.View entering={FadeInDown.duration(400)} style={card}>
+    <Animated.View entering={FadeInDown.duration(400)} style={[card, style]}>
       {eyebrow}
       {topAnomaly && catById.get(topAnomaly.categoryId) && (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>

@@ -1,6 +1,17 @@
+import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Calendar, Check, ChevronDown, Trash2, X } from 'lucide-react-native';
+import {
+  Calendar,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  TrendingDown,
+  TrendingUp,
+  Trash2,
+  X,
+} from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -14,7 +25,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { CURRENCIES, type CurrencyCode } from '@/lib/currency';
+import { CurrencyPicker } from '@/components/CurrencyPicker';
+import { SpringPressable } from '@/components/SpringPressable';
+import { CURRENCIES, formatAmount, type CurrencyCode } from '@/lib/currency';
 import { useExpenseCategoriesStore } from '@/lib/stores/expense-categories';
 import {
   todayDate,
@@ -88,6 +101,26 @@ export default function EditTransactionScreen() {
     () => categories.filter((c) => c.type === type),
     [categories, type],
   );
+
+  // Currencies pinned to the top of the picker sheet: home currency plus the
+  // user's preferred set (and, when editing, the stored currency).
+  const pinnedCurrencies = useMemo<CurrencyCode[]>(() => {
+    const set = new Set<CurrencyCode>([homeCurrency, ...(profile?.preferredCurrencies ?? [])]);
+    if (existing) set.add(existing.currency);
+    return Array.from(set);
+  }, [homeCurrency, profile?.preferredCurrencies, existing]);
+
+  const lightTap = () => {
+    if (Platform.OS === 'web') return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {
+      /* haptics unavailable */
+    });
+  };
+
+  const switchType = (t: TransactionType) => {
+    if (t !== type) lightTap();
+    setType(t);
+  };
 
   const amount = Number(amountText.replace(/[^0-9.]/g, ''));
   const isValid = amount > 0 && Number.isFinite(amount);
@@ -198,76 +231,84 @@ export default function EditTransactionScreen() {
           >
             <TypeButton
               label="Expense"
+              icon={TrendingDown}
               active={type === 'expense'}
               activeColor="#EF4444"
-              onPress={() => setType('expense')}
+              onPress={() => switchType('expense')}
             />
             <TypeButton
               label="Income"
+              icon={TrendingUp}
               active={type === 'income'}
               activeColor="#10B981"
-              onPress={() => setType('income')}
+              onPress={() => switchType('income')}
             />
           </View>
 
-          {/* Amount + currency */}
-          <View
-            style={{
-              backgroundColor: C.surface,
-              borderRadius: 16,
-              borderWidth: 1.5,
-              borderColor: C.border,
-              padding: 16,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 12,
-            }}
-          >
-            <Pressable
-              onPress={() => setShowCurrencyPicker((v) => !v)}
+          {/* Amount — the hero of the screen. Big, centered, tinted by type
+           *  (red out / green in) so the direction of money is unmissable
+           *  while typing. Currency pill sits just beneath. */}
+          <View style={{ alignItems: 'center', paddingVertical: 10 }}>
+            <View
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                gap: 4,
-                paddingVertical: 6,
-                paddingHorizontal: 10,
-                backgroundColor: C.borderLight,
-                borderRadius: 10,
+                justifyContent: 'center',
+                gap: 6,
               }}
             >
-              <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 14, color: C.textPrimary }}>
-                {CURRENCIES[currency].symbol} {currency}
+              <Text
+                style={{
+                  fontFamily: 'DMSans_700Bold',
+                  fontSize: 30,
+                  color: C.textMuted,
+                  letterSpacing: -0.5,
+                }}
+              >
+                {CURRENCIES[currency].symbol}
               </Text>
-              <ChevronDown size={14} color={C.textMuted} />
-            </Pressable>
-            <TextInput
-              value={amountText}
-              onChangeText={(v) => setAmountText(v.replace(/[^0-9.]/g, ''))}
-              placeholder="0.00"
-              placeholderTextColor={C.textMuted}
-              keyboardType="decimal-pad"
-              autoFocus={!editingId}
-              style={{
-                flex: 1,
-                fontFamily: 'DMSans_700Bold',
-                fontSize: 28,
-                color: C.textPrimary,
-                textAlign: 'right',
-                padding: 0,
-                letterSpacing: -0.5,
-              }}
-            />
-          </View>
+              <TextInput
+                value={amountText}
+                onChangeText={(v) => setAmountText(v.replace(/[^0-9.]/g, ''))}
+                placeholder="0"
+                placeholderTextColor={C.textFaint}
+                keyboardType="decimal-pad"
+                autoFocus={!editingId}
+                style={{
+                  fontFamily: 'DMSans_700Bold',
+                  fontSize: 48,
+                  color: type === 'expense' ? '#EF4444' : '#10B981',
+                  letterSpacing: -1.5,
+                  padding: 0,
+                  minWidth: 40,
+                  textAlign: 'center',
+                }}
+              />
+            </View>
 
-          {showCurrencyPicker && (
-            <CurrencyPicker
-              selected={currency}
-              onChange={(c) => {
-                setCurrency(c);
-                setShowCurrencyPicker(false);
+            <SpringPressable
+              onPress={() => setShowCurrencyPicker(true)}
+              haptic
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 5,
+                marginTop: 6,
+                paddingVertical: 6,
+                paddingHorizontal: 12,
+                backgroundColor: C.borderLight,
+                borderRadius: 999,
               }}
-            />
-          )}
+            >
+              <Text allowFontScaling={false} style={{ fontSize: 13 }}>
+                {CURRENCIES[currency].flag}
+              </Text>
+              <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 13, color: C.textPrimary }}>
+                {currency}
+              </Text>
+              <ChevronDown size={13} color={C.textMuted} />
+            </SpringPressable>
+          </View>
 
           {/* Category chips */}
           <SectionLabel>Category</SectionLabel>
@@ -289,7 +330,10 @@ export default function EditTransactionScreen() {
                   key={c.id}
                   cat={c}
                   selected={categoryId === c.id}
-                  onPress={() => setCategoryId(c.id)}
+                  onPress={() => {
+                    lightTap();
+                    setCategoryId(c.id);
+                  }}
                 />
               ))}
             </View>
@@ -308,7 +352,7 @@ export default function EditTransactionScreen() {
               padding: 4,
             }}
           >
-            <DateStepperButton label="−" onPress={goPrevDay} />
+            <DateStepperButton icon={ChevronLeft} onPress={goPrevDay} />
             <View style={{ flex: 1, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 }}>
               <Calendar size={16} color={C.textSecondary} />
               <Text
@@ -321,7 +365,7 @@ export default function EditTransactionScreen() {
                 {formatDate(occurredOn)}
               </Text>
             </View>
-            <DateStepperButton label="+" onPress={goNextDay} disabled={occurredOn >= todayDate()} />
+            <DateStepperButton icon={ChevronRight} onPress={goNextDay} disabled={occurredOn >= todayDate()} />
           </View>
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
             <QuickDateButton label="Today" onPress={() => setOccurredOn(todayDate())} active={occurredOn === todayDate()} />
@@ -347,7 +391,7 @@ export default function EditTransactionScreen() {
             <TextInput
               value={note}
               onChangeText={(v) => setNote(v.slice(0, 200))}
-              placeholder="Dinner with friends"
+              placeholder={type === 'expense' ? 'Dinner with friends' : 'July salary'}
               placeholderTextColor={C.textMuted}
               multiline
               style={{
@@ -385,40 +429,69 @@ export default function EditTransactionScreen() {
             backgroundColor: C.pageBg,
           }}
         >
-          <Pressable
+          <SpringPressable
             onPress={onSave}
             disabled={!isValid || saving}
-            style={({ pressed }) => ({
-              backgroundColor: isValid ? C.buttonPrimaryBg : C.borderLight,
-              borderRadius: 14,
-              paddingVertical: 16,
-              alignItems: 'center',
-              flexDirection: 'row',
-              justifyContent: 'center',
-              gap: 8,
-              transform: [{ scale: pressed && isValid ? 0.98 : 1 }],
-            })}
+            haptic
+            style={{
+              borderRadius: 16,
+              shadowColor: isValid ? C.heroTop : 'transparent',
+              shadowOpacity: 0.3,
+              shadowRadius: 12,
+              shadowOffset: { width: 0, height: 6 },
+              elevation: isValid ? 4 : 0,
+            }}
           >
-            {saving ? (
-              <ActivityIndicator color={C.buttonPrimaryText} />
-            ) : (
-              <>
-                <Check size={18} color={isValid ? C.buttonPrimaryText : C.textMuted} strokeWidth={2.5} />
+            {/* Brand gradient when actionable; flat track while disabled. */}
+            <LinearGradient
+              colors={
+                isValid
+                  ? [C.heroTop, C.heroMid, C.heroBot]
+                  : [C.borderLight, C.borderLight, C.borderLight]
+              }
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={{
+                borderRadius: 16,
+                overflow: 'hidden',
+                paddingVertical: 16,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {saving ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
                 <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
                   style={{
                     fontFamily: 'DMSans_700Bold',
                     fontSize: 16,
-                    color: isValid ? C.buttonPrimaryText : C.textMuted,
+                    color: isValid ? '#FFFFFF' : C.textMuted,
                     letterSpacing: 0.2,
                   }}
                 >
-                  Save
+                  {(editingId ? 'Save changes' : type === 'expense' ? 'Log expense' : 'Log income') +
+                    (isValid ? ` · ${formatAmount(amount, currency)}` : '')}
                 </Text>
-              </>
-            )}
-          </Pressable>
+              )}
+            </LinearGradient>
+          </SpringPressable>
         </View>
       </KeyboardAvoidingView>
+
+      <CurrencyPicker
+        visible={showCurrencyPicker}
+        current={currency}
+        pinned={pinnedCurrencies}
+        onSelect={(c) => {
+          setCurrency(c);
+          setShowCurrencyPicker(false);
+        }}
+        onCancel={() => setShowCurrencyPicker(false)}
+      />
     </View>
   );
 }
@@ -429,11 +502,13 @@ export default function EditTransactionScreen() {
 
 function TypeButton({
   label,
+  icon: Icon,
   active,
   activeColor,
   onPress,
 }: {
   label: string;
+  icon: typeof TrendingDown;
   active: boolean;
   activeColor: string;
   onPress: () => void;
@@ -448,8 +523,18 @@ function TypeButton({
         borderRadius: 9,
         paddingVertical: 10,
         alignItems: 'center',
+        justifyContent: 'center',
+        flexDirection: 'row',
+        gap: 6,
+        // Active segment lifts slightly off the track, like a real control.
+        shadowColor: active ? '#000' : 'transparent',
+        shadowOpacity: 0.08,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 2 },
+        elevation: active ? 2 : 0,
       }}
     >
+      <Icon size={15} color={active ? activeColor : C.textMuted} strokeWidth={2.5} />
       <Text
         style={{
           fontFamily: 'DMSans_600SemiBold',
@@ -502,60 +587,6 @@ function CategoryChip({
   );
 }
 
-function CurrencyPicker({
-  selected,
-  onChange,
-}: {
-  selected: CurrencyCode;
-  onChange: (c: CurrencyCode) => void;
-}) {
-  const C = useAppTheme();
-  // Common currencies up top for quick pick; full list scrolls below.
-  const common: CurrencyCode[] = ['USD', 'EUR', 'GBP', 'INR', 'JPY', 'AUD', 'CAD', 'SGD'];
-  const all = Object.keys(CURRENCIES) as CurrencyCode[];
-  const ordered = [...common, ...all.filter((c) => !common.includes(c))];
-  return (
-    <View
-      style={{
-        marginTop: 8,
-        backgroundColor: C.surface,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: C.border,
-        padding: 8,
-        maxHeight: 240,
-      }}
-    >
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-          {ordered.map((code) => (
-            <Pressable
-              key={code}
-              onPress={() => onChange(code)}
-              style={{
-                paddingHorizontal: 10,
-                paddingVertical: 6,
-                borderRadius: 999,
-                backgroundColor: selected === code ? C.accent : C.borderLight,
-              }}
-            >
-              <Text
-                style={{
-                  fontFamily: 'DMSans_500Medium',
-                  fontSize: 12,
-                  color: selected === code ? '#FFFFFF' : C.textPrimary,
-                }}
-              >
-                {CURRENCIES[code].symbol} {code}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      </ScrollView>
-    </View>
-  );
-}
-
 function SectionLabel({ children }: { children: React.ReactNode }) {
   const C = useAppTheme();
   return (
@@ -575,11 +606,11 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 function DateStepperButton({
-  label,
+  icon: Icon,
   onPress,
   disabled,
 }: {
-  label: string;
+  icon: typeof ChevronLeft;
   onPress: () => void;
   disabled?: boolean;
 }) {
@@ -598,15 +629,7 @@ function DateStepperButton({
         backgroundColor: disabled ? 'transparent' : C.borderLight,
       }}
     >
-      <Text
-        style={{
-          fontFamily: 'DMSans_700Bold',
-          fontSize: 18,
-          color: disabled ? C.borderLight : C.textPrimary,
-        }}
-      >
-        {label}
-      </Text>
+      <Icon size={18} color={disabled ? C.borderLight : C.textPrimary} strokeWidth={2.25} />
     </Pressable>
   );
 }
